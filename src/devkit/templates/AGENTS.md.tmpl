@@ -1,0 +1,40 @@
+# Working rules
+
+Read `{{RULES_DIR}}workflow.md` before anything else. Every rule below has one home; the
+router links, it does not restate.
+
+## Non-negotiables
+
+- **Run the relevant suite before reporting done.** If it fails, paste the failure — do not
+  describe it, do not report done. "Done" is defined in `{{RULES_DIR}}workflow.md`.
+- **Stay in scope.** Fix what was asked. Note adjacent problems; don't silently fix them.
+- **Conventional commits**, one logical change each, only when asked — the `commit` skill.
+- **A convention change edits its `{{RULES_DIR}}` file in the same commit.** A rule that lives
+  only in a diff is a rule the next agent will break.
+- **One fact, one home.** If something belongs in a pattern file, link it — don't restate it.
+- **Comments only where the code cannot say it.** Default to none. No docstring that repeats
+  the signature, no comment that narrates a diff, none that refers to something removed.
+- **No Claude/Codex/Cursor as co-author** on commits.
+- **Confirm before writing migration or backward-compatibility code.** It is often an unused
+  feature.
+- **Ask when readings diverge; decide when one is obviously right, and say which** —
+  `{{RULES_DIR}}workflow.md` has the ask/decide table.
+
+## Skills
+
+| Doing… | Use |
+| --- | --- |
+| Starting anything non-trivial | `plan` |
+| Committing | `commit` |
+| Building test-first | `tdd` |
+| Reviewing a diff | `code-review` |
+| Chasing a bug | `debug` |
+| Restructuring without changing behaviour | `refactor` |
+| Stopping mid-task, handing over | `handoff` |
+
+## Stacks
+
+| Working on… | Read |
+| --- | --- |
+{{STACKS}}
+{{PROJECT}}

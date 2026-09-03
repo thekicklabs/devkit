@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Entry point: locate the repo from this file's real path, make sure uv exists, run the CLI.
+set -euo pipefail
+
+SELF="$(readlink -f "${BASH_SOURCE[0]}")"
+ROOT="$(cd "$(dirname "$SELF")/.." && pwd)"
+
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v uv >/dev/null 2>&1; then
+  echo "devkit: installing uv…" >&2
+  curl -LsSf https://astral.sh/uv/install.sh | sh >/dev/null
+fi
+
+export DEVKIT_ROOT="$ROOT"
+exec uv run --project "$ROOT" --quiet devkit "$@"
