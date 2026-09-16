@@ -1,0 +1,15 @@
+interface:
+  display_name: Store Orchestrator
+  short_description: Prepare App Store listings, payments, and release checks
+  default_prompt: Use $store-orchestrator to inspect this project, draft or reconcile
+    store.yaml, report release gaps, and show the changes for confirmation before
+    applying them.
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true

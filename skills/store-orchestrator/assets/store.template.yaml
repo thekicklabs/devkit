@@ -1,0 +1,44 @@
+# Store Orchestrator format v1. Unknowns remain null; omission never deletes.
+schema_version: 1
+app:
+  bundle_id: null
+  apple_app_id: null
+  apple_team_id: null
+  sku: null
+  platform: IOS
+  version: null
+  primary_locale: null
+  device_families: []
+store:
+  categories: []
+  copyright: null
+  availability:
+    territories: null
+    include_future_territories: null
+  download_price:
+    mode: null # free | paid; independent from monetization.mode
+  localizations: {} # Locale keys; see references/store-format.md
+monetization:
+  mode: undecided # none | subscriptions | one_time | mixed | undecided
+  provider: null # revenuecat | native | other | none
+  integration: unknown # absent | detected | requested | verified | unknown
+  subscription_groups: []
+  products: []
+revenuecat:
+  enabled: null
+  project_id: null
+  app_id: null
+  entitlements: []
+  offerings: []
+release:
+  checklist_path: null
+  build_id: null
+  release_method: null # manual | automatic | scheduled
+  earliest_release_at: null
+  review:
+    notes: null
+    contact_ref: null
+    credentials_ref: null
+  screenshots: []
+  app_previews: []
+clarifications: [] # {path, question, evidence, blocks}
