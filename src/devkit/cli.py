@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 
 import typer
@@ -177,17 +178,50 @@ def install(
         console.print(f"[dim]added required stack(s): {', '.join(added)}[/dim]")
 
 
-def _summarise(paths: list[Path], home_dir: Path) -> str:
-    def short(p: Path) -> str:
-        try:
-            return "~/" + str(p.relative_to(home_dir))
-        except ValueError:
-            return str(p)
+@app.command()
+def update(
+    pull: bool = typer.Option(True, "--pull/--no-pull", help="git pull the devkit clone first"),
+):
+    """Pull the latest devkit, then re-copy every recorded install."""
+    root = repo_root()
+    if pull and (root / ".git").is_dir():
+        subprocess.run(["git", "-C", str(root), "pull", "--ff-only"], check=True)
+    home_dir = home()
+    outcomes = installer.refresh(_catalog(), home_dir)
+    if not outcomes:
+        console.print("[dim]no installs recorded; run `devkit install` first[/dim]")
+        raise typer.Exit(1)
 
+    table = Table(title="updated", title_justify="left")
+    table.add_column("where", style="dim")
+    table.add_column("scope")
+    table.add_column("changed")
+    table.add_column("note")
+    for o in outcomes:
+        where = "~" if o.scope == "global" else _short(Path(o.root), home_dir)
+        if o.skipped or o.error:
+            note = f"skipped: {o.skipped}" if o.skipped else f"[red]error: {o.error}[/red]"
+            table.add_row(where, o.scope, "-", note)
+            continue
+        changed = "\n".join(_short(p, home_dir) for p in o.changed) if o.changed else "-"
+        table.add_row(where, o.scope, changed, f"{o.unchanged} unchanged")
+    console.print(table)
+    if any(o.error for o in outcomes):
+        raise typer.Exit(1)
+
+
+def _short(p: Path, home_dir: Path) -> str:
+    try:
+        return "~/" + str(p.relative_to(home_dir))
+    except ValueError:
+        return str(p)
+
+
+def _summarise(paths: list[Path], home_dir: Path) -> str:
     if len(paths) <= 3:
-        return "\n".join(short(p) for p in paths)
+        return "\n".join(_short(p, home_dir) for p in paths)
     common = Path(os.path.commonpath([str(p) for p in paths]))
-    return f"{short(common)}/ ({len(paths)} files)"
+    return f"{_short(common, home_dir)}/ ({len(paths)} files)"
 
 
 @app.command("machine")

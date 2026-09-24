@@ -24,6 +24,7 @@ devkit install                            interactive picker (skills + stacks, t
 devkit install --local [--path DIR] --agent claude,codex,cursor --stack fastapi,react --skill plan
 devkit install --global --agent claude,codex --all --yes
 devkit install tdd handoff                shortcut: reuses the last scope/agents
+devkit update [--no-pull]                 git pull the clone, then re-copy every recorded install
 devkit machine [<tool>…|--all]
 ```
 
@@ -40,12 +41,14 @@ Selecting a stack pulls in what it `requires` (`fastapi` → `python`, `react` �
 | codex | local | `.agents/skills/` | managed block in `AGENTS.md` | `AGENTS/` |
 | cursor | local | `.cursor/skills/` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
 
-- Everything is **copied**; the repo stays the source of truth. Re-run `install` to refresh.
+- Everything is **copied**; the repo stays the source of truth. `devkit update` pulls and
+  re-copies every install recorded in `~/.config/devkit/installs.json`.
 - Router files are edited only between `<!-- devkit:start -->` / `<!-- devkit:end -->`.
   Your own content outside the markers is never touched.
 - `AGENTS/project.md` is created once per project and never overwritten — that is where
   project-specific facts go.
-- `~/.config/devkit/installs.json` records every written path and its sha256.
+- `~/.config/devkit/installs.json` records every install and the sha256 of each written
+  file; `update` reports which files it changed on disk.
 
 ## Layout
 

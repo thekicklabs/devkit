@@ -9,7 +9,7 @@ from importlib import resources
 from pathlib import Path
 
 from devkit import frontmatter, managed, targets
-from devkit.catalog import Catalog
+from devkit.catalog import Catalog, UnknownItem
 from devkit.paths import config_dir
 
 MANIFEST = "installs.json"
@@ -185,3 +185,46 @@ def _record(req: Request, report: Report) -> None:
     path = manifest_path(req.home)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+@dataclass
+class Outcome:
+    root: str
+    scope: str
+    changed: list[Path] = field(default_factory=list)
+    unchanged: int = 0
+    skipped: str | None = None
+    error: str | None = None
+
+
+def refresh(catalog: Catalog, home: Path) -> list[Outcome]:
+    """Re-copy every install the manifest records, from the current catalog."""
+    outcomes: list[Outcome] = []
+    for root, entry in read_manifest(home)["installs"].items():
+        scope = entry["scope"]
+        project = None if scope == "global" else Path(root)
+        outcome = Outcome(root=root, scope=scope)
+        outcomes.append(outcome)
+        if project is not None and not project.is_dir():
+            outcome.skipped = "project directory missing"
+            continue
+        req = Request(
+            scope=scope,
+            agents=list(entry.get("agents", [])),
+            skills=list(entry.get("skills", [])),
+            stacks=list(entry.get("stacks", [])),
+            home=home,
+            project=project,
+        )
+        before = {f: _sha256(Path(f)) for f in entry.get("files", {}) if Path(f).is_file()}
+        try:
+            report = install(catalog, req)
+        except (UnknownItem, ValueError) as e:
+            outcome.error = str(e)
+            continue
+        for w in report.written:
+            if before.get(str(w.path)) == _sha256(w.path):
+                outcome.unchanged += 1
+            else:
+                outcome.changed.append(w.path)
+    return outcomes

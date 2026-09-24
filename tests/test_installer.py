@@ -93,3 +93,37 @@ def test_stack_requires_are_installed_and_routed(catalog, home, project):
     assert router is not None
     assert "`AGENTS/python/AGENTS.md`" in router
     assert "`AGENTS/fastapi/AGENTS.md`" in router
+
+
+def test_refresh_restores_recorded_installs_and_reports_changes(catalog, home, project):
+    installer.install(catalog, _req(home, project, ["claude"]))
+    installer.install(catalog, _req(home, project, ["codex"], scope="global"))
+    tampered = project / ".claude" / "skills" / "plan" / "SKILL.md"
+    tampered.write_text("edited by hand\n")
+    deleted = home / ".agents" / "AGENTS" / "workflow.md"
+    deleted.unlink()
+
+    outcomes = {o.root: o for o in installer.refresh(catalog, home)}
+
+    local, global_ = outcomes[str(project)], outcomes["global"]
+    assert local.changed == [tampered]
+    assert local.unchanged > 0
+    assert global_.changed == [deleted]
+    assert (
+        tampered.read_text() == catalog.get("skill", "plan").path.joinpath("SKILL.md").read_text()
+    )
+    assert deleted.exists()
+
+
+def test_refresh_skips_missing_project_and_reports_unknown_items(catalog, home, project):
+    installer.install(catalog, _req(home, project, ["claude"]))
+    manifest = json.loads(installer.manifest_path(home).read_text())
+    manifest["installs"]["/nowhere/gone"] = {"scope": "local", "agents": ["claude"], "files": {}}
+    manifest["installs"][str(project)]["skills"].append("renamed-away")
+    installer.manifest_path(home).write_text(json.dumps(manifest))
+
+    outcomes = {o.root: o for o in installer.refresh(catalog, home)}
+
+    assert outcomes["/nowhere/gone"].skipped == "project directory missing"
+    assert outcomes["/nowhere/gone"].error is None
+    assert "renamed-away" in (outcomes[str(project)].error or "")
