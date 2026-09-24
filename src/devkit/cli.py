@@ -159,6 +159,10 @@ def install(
         home=home_dir,
         project=project,
     )
+    # The router lists every stack at this root, so a partial install must keep the
+    # stacks already there or their rows vanish.
+    already = manifest["installs"].get(req.root_key, {}).get("stacks", [])
+    req.stacks = sorted(set(req.stacks) | set(already))
     try:
         report = installer.install(cat, req)
     except (UnknownItem, ValueError) as e:
@@ -173,7 +177,7 @@ def install(
     for what, paths in grouped.items():
         table.add_row(what, _summarise(paths, home_dir))
     console.print(table)
-    added = [s for s in report.stacks if s not in req.stacks]
+    added = [s for s in report.stacks if s not in req.stacks and s not in already]
     if added:
         console.print(f"[dim]added required stack(s): {', '.join(added)}[/dim]")
 
