@@ -41,6 +41,91 @@ RevenueCat may expose operations that create store products. Treat those as Appl
 
 Never use test-mode purchase data as evidence that Apple catalog writes are sandbox-only. Explain scheduled versus immediate changes and any subscriber-consent implications using current provider behavior. Never accept contracts, supply tax/banking data, or certify declarations on the user's behalf as incidental setup.
 
+## App Store Connect resource traps
+
+Learned on real runs; each one either hid a blocker behind a green read or turned an
+approved write into a 4xx. Check them before planning the affected operation.
+
+- **App price: read the rows, not the schedule.** `GET /v1/apps/{id}/appPriceSchedule`
+  returns a record with a base territory even when the app has no price at all. Only
+  `appPriceSchedules/{id}/manualPrices` (and `automaticPrices`) prove a price exists; an
+  empty list means the app cannot be submitted and the ASC page shows "Add Pricing". Free
+  is a real price point (customerPrice `0.0`) that must be set like any other, via
+  `POST /v1/appPriceSchedules` with the app, base territory and an inline `appPrices` row.
+- **Subscription prices do not equalize themselves through the API.** A price created with
+  one territory leaves the other territories empty; RevenueCat reports "only 1 territory
+  price provided" and the product stays MISSING_METADATA. Read
+  `subscriptionPricePoints/{usaPoint}/equalizations`, show the full table, then
+  `POST /v1/subscriptionPrices` once per territory with `preserveCurrentPrice: true`.
+- **The initial subscription price also needs `preserveCurrentPrice: true`.** Without it
+  the first `POST /v1/subscriptionPrices` returns a bare 409 with no attribute named.
+- **App availability (v2) is create-once.** A second `POST /v2/appAvailabilities` returns
+  409. Change a single territory with `PATCH /v1/territoryAvailabilities/{id}` (ids come
+  back only with `include=territory`). `availableInNewTerritories` has no write route after
+  creation: it is an owner action in Pricing and Availability → App Availability → Manage,
+  readable afterwards to verify.
+- **Subscription availability is replace-on-POST**, so it can be re-posted with the full
+  territory list and the flag together.
+- **Age rating declaration types.** `ageAssurance` is a boolean, not an enum; the write
+  is rejected with a 409 naming the attribute if sent as a string. Other content fields
+  take `NONE`/`INFREQUENT_OR_MILD`/`FREQUENT_OR_INTENSE`. The computed store rating and the
+  override are both visible on the appInfo/declaration after the write.
+  `socialMediaAgeRestricted` must stay null unless `socialMedia` is true.
+- **First-version metadata limits.** `whatsNew` is rejected on an app's first version;
+  set it from the second version on. An extra locale left incomplete (name only, every
+  other field empty) blocks submission; deleting it is a destructive operation under its
+  own approval. A primary-locale change is applied with a lag; re-read before treating it
+  as failed.
+- **`PATCH versionString` is non-destructive.** Renaming a version (e.g. `1.0` → `1.0.0`)
+  keeps localizations, screenshots, review detail and release type on the same record;
+  no re-upload is needed.
+- **Subscription review screenshots need an exact device size.** 923×2000 fails with
+  `IMAGE_INCORRECT_DIMENSIONS`; a native iPhone capture (e.g. 1179×2556) passes. Images
+  relayed through chat are often downscaled, so check dimensions before reserving the
+  upload, and flatten alpha. A failed record must be deleted before a new reservation.
+- **The MCP sandbox cannot send bytes.** Reserve via the API, `curl -X PUT --data-binary`
+  to the returned URL with its `requestHeaders`, then PATCH `uploaded: true` with the MD5.
+  The sandbox also has no `setTimeout`; poll with separate calls.
+- **The API cannot read App Privacy, EU trader status or the tax category** (the last two
+  live on the Agreements page and Pricing and Availability). These are owner attestations
+  recorded from screenshots or the owner's word, never "verified by API".
+- **Build bundles come through `include`, not the relationship route.**
+  `GET /v1/builds/{id}/buildBundles` is denied, but `GET /v1/builds/{id}?include=buildBundles`
+  returns them. `sdkBuild`/`platformBuild` (e.g. `23A339` = iOS 26.0 SDK) verify the SDK
+  minimum, `entitlements` lists every bundle including extensions and their app groups, and
+  `minOsVersion` sits on the build itself.
+- **Swapping the build on a version.** `PATCH /v1/appStoreVersions/{id}/relationships/build`
+  replaces it; verify with `GET /v1/appStoreVersions/{id}/build`. Export compliance is per
+  build (`usesNonExemptEncryption`), so re-check it after every swap.
+- **Reviewer credentials are readable.** `GET /v1/appStoreReviewDetails/{id}` returns the
+  demo account, contact and notes; read it live to answer "are the reviewer credentials in"
+  before submitting rather than trusting the plan.
+- **Subscriptions are not accepted as `reviewSubmissionItems`.** Posting an item with a
+  `subscription` relationship returns 409. The owner adds each subscription from its own
+  product page in ASC ("Submit for Review" there only adds it to the open draft). The
+  `appStoreVersion` item can be added via the API to the same draft, and the draft is sent
+  with `PATCH /v1/reviewSubmissions/{id}` `submitted: true`. Decode the draft's warnings:
+  "new subscription groups must be submitted with an auto-renewable subscription from
+  within that group" = add a subscription item; "add an app version for the selected
+  platform" = add the version item.
+- **Proof the subscriptions went with the version** is their state flipping
+  `READY_TO_SUBMIT` → `WAITING_FOR_REVIEW`. A version waiting while its subscriptions stay
+  ready means they were left out. First subscriptions must ship with a new app version, so
+  cancel and resubmit rather than let the version be approved alone.
+- **Cancelling a submission.** `PATCH /v1/reviewSubmissions/{id}` `canceled: true`; the
+  state goes `CANCELING` → `COMPLETE`, the version becomes `DEVELOPER_REJECTED` (normal,
+  still editable) and the attached build survives. Re-read with a separate call.
+- **ITMS warnings arrive only by email** to the account holder after a build processes;
+  ask for a yes/no rather than claiming none exist.
+- **Internal TestFlight testers are not invited by adding them.** A tester added to an
+  internal group before the group holds a build sits at `state: NOT_INVITED` with no email.
+  `POST /v1/betaTesterInvitations` sends it; the build appears in TestFlight only after the
+  invite is accepted on the same Apple ID the device uses.
+- **EAS stores no ASC submit key by default.** `eas submit --non-interactive` fails with
+  "App Store Connect API Keys cannot be set up in --non-interactive mode"; the owner runs
+  the first submit interactively. The EAS Xcode build log downloads as an opaque blob, so
+  the toolchain version cannot be confirmed from it.
+
 ## Failure and rerun behavior
 
 - Stop dependent writes on failure. Continue independent operations only if already approved and unaffected. Report succeeded/failed/blocked/unknown operations, with IDs and recovery steps.
