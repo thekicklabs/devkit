@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -23,9 +24,9 @@ def test_local_install_writes_every_target_path(catalog, home, project):
         project / "AGENTS.md",
         project / "CLAUDE.md",
         project / ".cursor" / "rules" / "devkit.mdc",
-        project / ".claude" / "skills" / "plan" / "SKILL.md",
+        project / ".claude" / "skills" / "plan",
         project / ".agents" / "skills" / "plan" / "SKILL.md",
-        project / ".cursor" / "skills" / "plan" / "SKILL.md",
+        project / ".cursor" / "skills" / "plan",
         project / "AGENTS" / "workflow.md",
         project / "AGENTS" / "project.md",
     ]
@@ -33,6 +34,11 @@ def test_local_install_writes_every_target_path(catalog, home, project):
         assert p.exists(), p
     written = {w.path for w in report.written}
     assert set(expected) <= written
+    for agent in (".claude", ".cursor"):
+        link = project / agent / "skills" / "plan"
+        assert link.is_symlink()
+        assert os.readlink(link) == "../../.agents/skills/plan"
+        assert (link / "SKILL.md").read_text() == expected[4].read_text()
 
     manifest = json.loads(installer.manifest_path(home).read_text())
     entry = manifest["installs"][str(project)]
@@ -68,6 +74,7 @@ def test_global_install_paths(catalog, home, project):
         home / ".agents" / "AGENTS" / "workflow.md",
     ):
         assert p.exists(), p
+    assert os.readlink(home / ".claude" / "skills" / "plan") == "../../.agents/skills/plan"
     assert not (home / ".agents" / "AGENTS" / "project.md").exists()
     router = managed.extract((home / ".claude" / "CLAUDE.md").read_text())
     assert router is not None
@@ -98,7 +105,7 @@ def test_stack_requires_are_installed_and_routed(catalog, home, project):
 def test_refresh_restores_recorded_installs_and_reports_changes(catalog, home, project):
     installer.install(catalog, _req(home, project, ["claude"]))
     installer.install(catalog, _req(home, project, ["codex"], scope="global"))
-    tampered = project / ".claude" / "skills" / "plan" / "SKILL.md"
+    tampered = project / ".agents" / "skills" / "plan" / "SKILL.md"
     tampered.write_text("edited by hand\n")
     deleted = home / ".agents" / "AGENTS" / "workflow.md"
     deleted.unlink()
@@ -127,3 +134,21 @@ def test_refresh_skips_missing_project_and_reports_unknown_items(catalog, home, 
     assert outcomes["/nowhere/gone"].skipped == "project directory missing"
     assert outcomes["/nowhere/gone"].error is None
     assert "renamed-away" in (outcomes[str(project)].error or "")
+
+
+def test_install_replaces_an_older_real_copy_with_a_link(catalog, home, project):
+    stale = project / ".claude" / "skills" / "plan"
+    stale.mkdir(parents=True)
+    (stale / "SKILL.md").write_text("old copy\n")
+    installer.install(catalog, _req(home, project, ["claude"]))
+    assert stale.is_symlink()
+    assert (stale / "SKILL.md").read_text() != "old copy\n"
+
+
+def test_refresh_reports_an_intact_link_as_unchanged(catalog, home, project):
+    installer.install(catalog, _req(home, project, ["claude"]))
+    (project / ".claude" / "skills" / "plan").unlink()
+    outcomes = {o.root: o for o in installer.refresh(catalog, home)}
+    assert outcomes[str(project)].changed == [project / ".claude" / "skills" / "plan"]
+    outcomes = {o.root: o for o in installer.refresh(catalog, home)}
+    assert outcomes[str(project)].changed == []

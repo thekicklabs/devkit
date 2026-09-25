@@ -35,6 +35,14 @@ def rules_dir(scope: str, home: Path, project: Path | None) -> Path:
     return project / "AGENTS"
 
 
+def skills_root(scope: str, home: Path, project: Path | None) -> Path:
+    """The one real copy of every skill; other agents' skill dirs link into it."""
+    if scope == "global":
+        return home / ".agents" / "skills"
+    assert project is not None
+    return project / ".agents" / "skills"
+
+
 def rules_link(scope: str) -> str:
     """Prefix used in rendered links; global links must resolve from any cwd."""
     return "~/.agents/AGENTS/" if scope == "global" else "AGENTS/"

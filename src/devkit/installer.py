@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -75,13 +76,26 @@ def render_router(catalog: Catalog, req: Request, stacks: list[str]) -> str:
     )
 
 
+def _clear(path: Path) -> None:
+    if path.is_symlink():
+        path.unlink()
+    elif path.exists():
+        shutil.rmtree(path)
+
+
 def _copy_tree(src: Path, dst: Path, report: Report, what: str) -> None:
-    if dst.exists():
-        shutil.rmtree(dst)
+    _clear(dst)
     shutil.copytree(src, dst)
     for p in sorted(dst.rglob("*")):
         if p.is_file():
             report.add(p, what)
+
+
+def _link(target: Path, link: Path, report: Report, what: str) -> None:
+    _clear(link)
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(os.path.relpath(target, link.parent), target_is_directory=True)
+    report.add(link, what)
 
 
 def _write(path: Path, text: str, report: Report, what: str) -> None:
@@ -112,12 +126,17 @@ def install(catalog: Catalog, req: Request) -> Report:
         agents_md = dst / "AGENTS.md"
         agents_md.write_text(frontmatter.strip(agents_md.read_text()))
 
+    skills_root = targets.skills_root(req.scope, req.home, req.project)
     for skill in req.skills:
-        catalog.get("skill", skill)
+        item = catalog.get("skill", skill)
+        _copy_tree(item.path, skills_root / skill, report, "skills")
     for tgt in targets.targets(req.agents, req.scope, req.home, req.project):
+        if tgt.skills_dir == skills_root:
+            continue
         for skill in req.skills:
-            item = catalog.get("skill", skill)
-            _copy_tree(item.path, tgt.skills_dir / skill, report, f"skills → {tgt.agent}")
+            _link(
+                skills_root / skill, tgt.skills_dir / skill, report, f"skills → {tgt.agent} (link)"
+            )
 
     router = render_router(catalog, req, stacks)
     seen: set[Path] = set()
@@ -148,7 +167,9 @@ def install(catalog: Catalog, req: Request) -> Report:
     return report
 
 
-def _sha256(path: Path) -> str:
+def _fingerprint(path: Path) -> str:
+    if path.is_symlink():
+        return "link:" + os.readlink(path)
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -168,7 +189,7 @@ def _record(req: Request, report: Report) -> None:
     entry = data["installs"].get(req.root_key, {"files": {}})
     files = dict(entry.get("files", {}))
     for w in report.written:
-        files[str(w.path)] = _sha256(w.path)
+        files[str(w.path)] = _fingerprint(w.path)
     data["installs"][req.root_key] = {
         "scope": req.scope,
         "agents": sorted(set(entry.get("agents", [])) | set(req.agents)),
@@ -216,14 +237,18 @@ def refresh(catalog: Catalog, home: Path) -> list[Outcome]:
             home=home,
             project=project,
         )
-        before = {f: _sha256(Path(f)) for f in entry.get("files", {}) if Path(f).is_file()}
+        before = {
+            f: _fingerprint(Path(f))
+            for f in entry.get("files", {})
+            if Path(f).is_symlink() or Path(f).is_file()
+        }
         try:
             report = install(catalog, req)
         except (UnknownItem, ValueError) as e:
             outcome.error = str(e)
             continue
         for w in report.written:
-            if before.get(str(w.path)) == _sha256(w.path):
+            if before.get(str(w.path)) == _fingerprint(w.path):
                 outcome.unchanged += 1
             else:
                 outcome.changed.append(w.path)

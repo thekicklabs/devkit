@@ -35,14 +35,17 @@ Selecting a stack pulls in what it `requires` (`fastapi` → `python`, `react` �
 
 | Agent | Scope | Skills | Router | Rules |
 | --- | --- | --- | --- | --- |
-| claude | global | `~/.claude/skills/` | managed block in `~/.claude/CLAUDE.md` | `~/.agents/AGENTS/` |
-| claude | local | `.claude/skills/` | `AGENTS.md` block + `CLAUDE.md` importing it | `AGENTS/` |
+| claude | global | `~/.claude/skills/<name>` → `~/.agents/skills/<name>` | managed block in `~/.claude/CLAUDE.md` | `~/.agents/AGENTS/` |
+| claude | local | `.claude/skills/<name>` → `.agents/skills/<name>` | `AGENTS.md` block + `CLAUDE.md` importing it | `AGENTS/` |
 | codex | global | `~/.agents/skills/` | managed block in `~/.codex/AGENTS.md` | `~/.agents/AGENTS/` |
 | codex | local | `.agents/skills/` | managed block in `AGENTS.md` | `AGENTS/` |
-| cursor | local | `.cursor/skills/` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
+| cursor | local | `.cursor/skills/<name>` → `.agents/skills/<name>` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
 
-- Everything is **copied**; the repo stays the source of truth. `devkit update` pulls and
-  re-copies every install recorded in `~/.config/devkit/installs.json`.
+- One copy per scope: skills are **copied** into `.agents/skills/` whichever agents are
+  chosen, and every other agent's skill directory is a relative symlink into it. Rules live
+  once under `AGENTS/`; the routers point at them. The repo stays the source of truth —
+  `devkit update` pulls and re-copies every install recorded in
+  `~/.config/devkit/installs.json`.
 - Router files are edited only between `<!-- devkit:start -->` / `<!-- devkit:end -->`.
   Your own content outside the markers is never touched.
 - `AGENTS/project.md` is created once per project and never overwritten — that is where
