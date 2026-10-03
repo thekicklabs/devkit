@@ -6,9 +6,20 @@ from devkit.catalog import UnknownItem
 def test_every_skill_has_name_and_description(catalog):
     skills = {s.name for s in catalog.by_kind("skill")}
     assert {"plan", "commit", "tdd", "code-review", "debug", "refactor", "handoff"} <= skills
+    assert "store-orchestrator" in skills
     for s in catalog.by_kind("skill"):
         assert s.description, s.name
         assert (s.path / "SKILL.md").exists()
+
+
+def test_skills_are_read_from_every_plugin(catalog):
+    plugins = {s.path.parent.parent.name for s in catalog.by_kind("skill")}
+    assert plugins == {"kick", "store"}
+    assert catalog.get("skill", "store-orchestrator").path.parts[-4:-1] == (
+        "plugins",
+        "store",
+        "skills",
+    )
 
 
 def test_rules_have_read_when(catalog):

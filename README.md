@@ -57,16 +57,16 @@ Selecting a stack pulls in what it `requires` (`fastapi` â†’ `python`, `react` â
 ## Layout
 
 ```
-skills/<name>/SKILL.md      agent-agnostic skills (Agent Skills format)
-rules/*.md                  generic rules, always installed
-stacks/<name>/              per-stack router + pattern files; frontmatter may declare `requires`
-machine/NN-<tool>.sh        idempotent bootstrap steps; `bash script check` decides whether to run
-src/devkit/                 the CLI
+plugins/<plugin>/skills/<name>/   agent-agnostic skills (Agent Skills format)
+rules/*.md                        generic rules, always installed
+stacks/<name>/                    per-stack router + pattern files; frontmatter may declare `requires`
+machine/NN-<tool>.sh              idempotent bootstrap steps; `bash script check` decides whether to run
+src/devkit/                       the CLI
 ```
 
 ## Adding a skill
 
-`skills/<name>/SKILL.md` with frontmatter `name` and `description` (the description says
+`plugins/kick/skills/<name>/SKILL.md` with frontmatter `name` and `description` (the description says
 *when* to use it). Add a row to `src/devkit/templates/AGENTS.md.tmpl` if it should be routed.
 
 ## Adding a stack
