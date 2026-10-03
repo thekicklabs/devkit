@@ -64,6 +64,7 @@ Match the intent, then open the skill or playbook. For a playbook, copy its step
 | Landing a verified PR or stack | [Shipping](playbooks/shipping.md) |
 | A long run to a predicate without stopping | [Autonomous run](playbooks/autonomous-run.md) |
 | Writing or editing a skill | [Authoring a skill](playbooks/authoring-a-skill.md) |
+| Configuring kick's models, reviewers, fan-out or hook | `setup-kick` |
 | Stopping mid-task | `handoff` |
 | Resuming earlier work | `recall` |
 | Docs, PR text, commit bodies | `technical-writing`, then `unslop` |

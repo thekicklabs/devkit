@@ -2,7 +2,7 @@
 
 Skills name a role, never a model. Resolve a role in this order:
 
-1. The user's config, `${XDG_CONFIG_HOME:-~/.config}/kick/config.md`. Read it with `cat` when a skill needs a role. A line `<runtime> <role>: <value>` sets one role, as in `claude strong: opus` or `codex fast: gpt-6-luna`.
+1. The user's config, `${XDG_CONFIG_HOME:-~/.config}/kick/config.md`, which the `setup-kick` skill writes. Read it with `cat` when a skill needs a role. A line `<runtime> <role>: <value>` sets one role, as in `claude strong: opus` or `codex fast: gpt-6-luna`.
 2. The defaults below.
 
 | Role | Used for | Claude Code | Codex |
