@@ -48,13 +48,7 @@ def rules_link(scope: str) -> str:
     return "~/.agents/AGENTS/" if scope == "global" else "AGENTS/"
 
 
-def supports(agent: str, scope: str) -> bool:
-    return not (agent == "cursor" and scope == "global")
-
-
 def target(agent: str, scope: str, home: Path, project: Path | None) -> Target:
-    if not supports(agent, scope):
-        raise ValueError(f"{agent} has no file-based {scope} scope")
     if scope == "global":
         if agent == "claude":
             return Target(
@@ -70,6 +64,8 @@ def target(agent: str, scope: str, home: Path, project: Path | None) -> Target:
                 home / ".agents" / "skills",
                 (Router(home / ".codex" / "AGENTS.md", "inline"),),
             )
+        # Cursor reads ~/.agents/skills but has no file-based global rules (User Rules are UI-only).
+        return Target(agent, scope, home / ".agents" / "skills", ())
     assert project is not None
     shared = Router(project / "AGENTS.md", "inline")
     if agent == "claude":
@@ -84,7 +80,7 @@ def target(agent: str, scope: str, home: Path, project: Path | None) -> Target:
     return Target(
         agent,
         scope,
-        project / ".cursor" / "skills",
+        project / ".agents" / "skills",
         (shared, Router(project / ".cursor" / "rules" / "devkit.mdc", "mdc")),
     )
 

@@ -107,10 +107,6 @@ def _write(path: Path, text: str, report: Report, what: str) -> None:
 def install(catalog: Catalog, req: Request) -> Report:
     if req.scope == "local" and req.project is None:
         raise ValueError("local scope needs a project path")
-    for agent in req.agents:
-        if not targets.supports(agent, req.scope):
-            raise ValueError(f"{agent} has no file-based {req.scope} scope")
-
     report = Report()
     stacks = catalog.resolve_stacks(req.stacks)
     report.stacks = stacks

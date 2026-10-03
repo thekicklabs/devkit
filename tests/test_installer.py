@@ -26,7 +26,6 @@ def test_local_install_writes_every_target_path(catalog, home, project):
         project / ".cursor" / "rules" / "devkit.mdc",
         project / ".claude" / "skills" / "plan",
         project / ".agents" / "skills" / "plan" / "SKILL.md",
-        project / ".cursor" / "skills" / "plan",
         project / "AGENTS" / "workflow.md",
         project / "AGENTS" / "project.md",
     ]
@@ -34,11 +33,11 @@ def test_local_install_writes_every_target_path(catalog, home, project):
         assert p.exists(), p
     written = {w.path for w in report.written}
     assert set(expected) <= written
-    for agent in (".claude", ".cursor"):
-        link = project / agent / "skills" / "plan"
-        assert link.is_symlink()
-        assert os.readlink(link) == "../../.agents/skills/plan"
-        assert (link / "SKILL.md").read_text() == expected[4].read_text()
+    link = project / ".claude" / "skills" / "plan"
+    assert link.is_symlink()
+    assert os.readlink(link) == "../../.agents/skills/plan"
+    assert (link / "SKILL.md").read_text() == expected[4].read_text()
+    assert not (project / ".cursor" / "skills").exists()
 
     manifest = json.loads(installer.manifest_path(home).read_text())
     entry = manifest["installs"][str(project)]
@@ -82,9 +81,11 @@ def test_global_install_paths(catalog, home, project):
     assert "This project" not in router
 
 
-def test_cursor_has_no_global_scope(catalog, home, project):
-    with pytest.raises(ValueError):
-        installer.install(catalog, _req(home, project, ["cursor"], scope="global"))
+def test_cursor_global_is_skills_only(catalog, home, project):
+    report = installer.install(catalog, _req(home, project, ["cursor"], scope="global"))
+    assert (home / ".agents" / "skills" / "plan" / "SKILL.md").exists()
+    assert not (home / ".cursor").exists()
+    assert not any(w.what.startswith("router") for w in report.written)
 
 
 def test_stack_requires_are_installed_and_routed(catalog, home, project):

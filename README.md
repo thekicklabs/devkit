@@ -9,7 +9,7 @@ Code, Codex and Cursor — plus the bootstrap scripts for a fresh Debian/Ubuntu 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thekicklabs/devkit/main/install.sh | bash
 devkit machine --all          # docker, tailscale, uv, node, gh, claude, codex — skips what's present
-devkit install --global --all # skills + rules for claude and codex under ~
+devkit install --global --all # skills + rules for every agent under ~
 ```
 
 `install.sh` clones (or pulls) the repo to `~/.devkit`, links `~/.local/bin/devkit`, and
@@ -39,10 +39,11 @@ Selecting a stack pulls in what it `requires` (`fastapi` → `python`, `react` �
 | claude | local | `.claude/skills/<name>` → `.agents/skills/<name>` | `AGENTS.md` block + `CLAUDE.md` importing it | `AGENTS/` |
 | codex | global | `~/.agents/skills/` | managed block in `~/.codex/AGENTS.md` | `~/.agents/AGENTS/` |
 | codex | local | `.agents/skills/` | managed block in `AGENTS.md` | `AGENTS/` |
-| cursor | local | `.cursor/skills/<name>` → `.agents/skills/<name>` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
+| cursor | global | `~/.agents/skills/` | none — Cursor has no file-based global rules (paste into User Rules) | `~/.agents/AGENTS/` |
+| cursor | local | `.agents/skills/` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
 
-- One copy per scope: skills are **copied** into `.agents/skills/` whichever agents are
-  chosen, and every other agent's skill directory is a relative symlink into it. Rules live
+- One copy per scope: skills are **copied** into `.agents/skills/`, which Codex and Cursor
+  read directly; Claude does not, so `.claude/skills/<name>` is a relative symlink into it. Rules live
   once under `AGENTS/`; the routers point at them. The repo stays the source of truth —
   `devkit update` pulls and re-copies every install recorded in
   `~/.config/devkit/installs.json`.

@@ -13,7 +13,7 @@ from devkit import installer, machine, picker
 from devkit import search as search_mod
 from devkit.catalog import KINDS, UnknownItem
 from devkit.paths import home, repo_root
-from devkit.targets import AGENTS, supports
+from devkit.targets import AGENTS
 
 app = typer.Typer(
     help="Install skills, rules and stack conventions for Claude Code, Codex and Cursor.",
@@ -139,16 +139,14 @@ def install(
     agents = _csv(agent)
     if not agents:
         if names and last.get("agents"):
-            agents = [a for a in last["agents"] if supports(a, scope)]
+            agents = list(last["agents"])
         elif prompt:
-            agents = picker.pick_agents(scope)
+            agents = picker.pick_agents()
         else:
-            agents = [a for a in AGENTS if supports(a, scope)]
+            agents = list(AGENTS)
     for a in agents:
         if a not in AGENTS:
             raise typer.BadParameter(f"unknown agent '{a}' (choose from {', '.join(AGENTS)})")
-        if not supports(a, scope):
-            raise typer.BadParameter(f"{a} has no file-based {scope} scope")
 
     project = None if scope == "global" else (path or Path.cwd()).resolve()
     req = installer.Request(
