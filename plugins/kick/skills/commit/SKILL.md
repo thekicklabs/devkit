@@ -14,7 +14,7 @@ Commit or push **only when asked**. Never commit to `main` directly — branch o
    report the failure instead.
 2. `git status` and `git diff` — read the whole diff. Remove leftover debug output,
    commented-out code, and comments that describe something no longer there.
-3. If a convention changed, its rule file under `AGENTS/` changes in this commit. A rule
+3. If a convention changed, the rule file that owns it changes in this commit. A rule
    that lives only in a diff is a rule the next agent will break.
 
 ## Shape

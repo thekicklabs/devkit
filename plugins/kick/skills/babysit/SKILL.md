@@ -26,7 +26,14 @@ gh pr view <pr> --json number,headRefName,headRefOid,baseRefName,mergeable,merge
 gh pr checks <pr>
 ```
 
-Run the **get-pr-comments** skill for the review threads. Confirm the PR it reports is the one the user meant before acting.
+Then the review threads:
+
+```bash
+gh pr view <pr> --json comments,reviews
+gh api "repos/{owner}/{repo}/pulls/<pr>/comments" --paginate
+```
+
+Group the feedback into mechanical fixes, judgment calls, questions, and noise. Confirm the PR is the one the user meant before acting.
 
 ## 4. Fix in order: conflicts, review threads, CI
 

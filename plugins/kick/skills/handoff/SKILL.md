@@ -40,6 +40,6 @@ Rules:
 
 - Evidence is real output, pasted. "Tests pass" is a claim.
 - List what you were *about* to do next, in order.
-- If a rule file under `AGENTS/` should change because of what you learned, say which and
+- If a rule file your router links should change because of what you learned, say which and
   what — do not leave it in your head.
 - Do not commit `HANDOFF.md` unless asked; it is a working note.

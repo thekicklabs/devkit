@@ -15,7 +15,9 @@ signature (the `plan` skill does this).
 ## The loop
 
 1. **Red** — write one test for one behaviour. Run it. Watch it fail *for the right reason*
-   (an assertion, not an import error).
+   and quote the failure, not the assertion line: an import error, an exception, and the
+   predicted mismatch all print red, and only the predicted mismatch proves the test
+   measures the behaviour.
 2. **Green** — the smallest change that passes. Ugly is fine here.
 3. **Refactor** — with the suite green, clean up. Tests unchanged. Run again.
 
@@ -35,9 +37,18 @@ edge case.
 Happy path · each distinguishable failure (asserted by its code/message, not just its
 status) · the boundary (empty, one, many, max) · the denied path for anything authorised.
 
-The stack's `testing.md` says how tests are set up (fixtures, factories, mocks, isolation).
-Read it before the first test.
+If your router links a stack `testing.md`, it says how tests are set up (fixtures,
+factories, mocks, isolation). Read it before the first test.
+
+## When a failing test is impractical
+
+If the only test would need broad harness setup, brittle mocks, production-only state, or
+large unrelated fixture churn, use the closest executable check instead — a targeted script,
+a reproduction command, a focused integration run — and say so. No new test beats a bad one.
+Never change a test to match a wrong implementation, or weaken an assertion, unless the
+expected behaviour genuinely changed.
 
 ## Done
 
-The whole suite green, pasted. Every new behaviour has a test that failed before the change.
+The whole suite green, pasted. Every new behaviour has a test that failed before the change,
+or a stated reason and the closest check you ran instead.

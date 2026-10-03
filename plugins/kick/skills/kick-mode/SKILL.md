@@ -43,11 +43,11 @@ Match the intent, then open the skill or playbook. For a playbook, copy its step
 | Read-only question: how does X work, why is Y built this way, should we do X or Y | [Investigation](playbooks/investigation.md) |
 | How code works, where something should live | `how` |
 | Why code is this way, regression history | `why` |
-| A reported defect | [Bug fix](playbooks/bug-fix.md) |
-| A measured slowness | [Perf issue](playbooks/perf-issue.md) |
+| A reported defect, a flaky test | `debug` |
+| A measured slowness, or a number you are about to report | [Perf issue](playbooks/perf-issue.md) |
 | Sustained improvement of one metric | [Hillclimb](playbooks/hillclimb.md) |
 | New or changed behaviour | [Feature](playbooks/feature.md) |
-| Behaviour-preserving restructure | [Refactoring](playbooks/refactoring.md) |
+| Behaviour-preserving restructure | `refactor` |
 | Building test-first | `tdd` |
 | Types, signatures and module shape before code | `architect` |
 | A throwaway sketch to settle a design or empirical fork | [Prototype](playbooks/prototype.md) |

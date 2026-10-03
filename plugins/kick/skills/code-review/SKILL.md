@@ -43,7 +43,7 @@ Always BLOCKER:
 - Tests not run, failing, or "passes" claimed without output.
 - New behaviour without a test; a bug fix without its regression test.
 - Scope larger than the request.
-- A convention changed in code but not in its `AGENTS/` file.
+- A convention changed in code but not in the rule file that owns it.
 - A new dependency nobody agreed to.
 - A persisted-shape or contract change without its migration / other-side update.
 
@@ -109,4 +109,5 @@ now be glad it was caught? If not, leave it out.
 
 ## Then
 
-Open `AGENTS/<stack>/review.md` for each stack the diff touches and run its checklist.
+For each stack the diff touches, open the `review.md` your router links, if present, and run its
+checklist.
