@@ -24,7 +24,7 @@ class Router:
 class Target:
     agent: str
     scope: str
-    skills_dir: Path
+    skills_dir: Path | None
     routers: tuple[Router, ...]
 
 
@@ -35,52 +35,30 @@ def rules_dir(scope: str, home: Path, project: Path | None) -> Path:
     return project / "AGENTS"
 
 
-def skills_root(scope: str, home: Path, project: Path | None) -> Path:
-    """The one real copy of every skill; other agents' skill dirs link into it."""
-    if scope == "global":
-        return home / ".agents" / "skills"
-    assert project is not None
-    return project / ".agents" / "skills"
-
-
 def rules_link(scope: str) -> str:
     """Prefix used in rendered links; global links must resolve from any cwd."""
     return "~/.agents/AGENTS/" if scope == "global" else "AGENTS/"
 
 
 def target(agent: str, scope: str, home: Path, project: Path | None) -> Target:
+    """Claude and Codex get skills from the kick plugin, so only Cursor has a skills dir."""
     if scope == "global":
         if agent == "claude":
-            return Target(
-                agent,
-                scope,
-                home / ".claude" / "skills",
-                (Router(home / ".claude" / "CLAUDE.md", "inline"),),
-            )
+            return Target(agent, scope, None, (Router(home / ".claude" / "CLAUDE.md", "inline"),))
         if agent == "codex":
-            return Target(
-                agent,
-                scope,
-                home / ".agents" / "skills",
-                (Router(home / ".codex" / "AGENTS.md", "inline"),),
-            )
-        # Cursor reads ~/.agents/skills but has no file-based global rules (User Rules are UI-only).
-        return Target(agent, scope, home / ".agents" / "skills", ())
+            return Target(agent, scope, None, (Router(home / ".codex" / "AGENTS.md", "inline"),))
+        # Cursor has no file-based global rules (User Rules are UI-only).
+        return Target(agent, scope, home / ".cursor" / "skills", ())
     assert project is not None
     shared = Router(project / "AGENTS.md", "inline")
     if agent == "claude":
-        return Target(
-            agent,
-            scope,
-            project / ".claude" / "skills",
-            (shared, Router(project / "CLAUDE.md", "import")),
-        )
+        return Target(agent, scope, None, (shared, Router(project / "CLAUDE.md", "import")))
     if agent == "codex":
-        return Target(agent, scope, project / ".agents" / "skills", (shared,))
+        return Target(agent, scope, None, (shared,))
     return Target(
         agent,
         scope,
-        project / ".agents" / "skills",
+        project / ".cursor" / "skills",
         (shared, Router(project / ".cursor" / "rules" / "devkit.mdc", "mdc")),
     )
 

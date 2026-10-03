@@ -68,7 +68,7 @@ neither covers.
 ```bash
 curl -fsSL https://raw.githubusercontent.com/thekicklabs/devkit/main/install.sh | bash
 devkit machine --all          # docker, tailscale, uv, node, gh, claude, codex — skips what's present
-devkit install --global --all # skills + rules for every agent under ~
+devkit install --global --all # rules for every agent; kick for claude/codex, copies for cursor
 ```
 
 `install.sh` clones (or pulls) the repo to `~/.devkit`, links `~/.local/bin/devkit`, and
@@ -83,7 +83,7 @@ devkit install                            interactive picker (skills + stacks, t
 devkit install --local [--path DIR] --agent claude,codex,cursor --stack fastapi,react --skill plan
 devkit install --global --agent claude,codex --all --yes
 devkit install tdd handoff                shortcut: reuses the last scope/agents
-devkit update [--no-pull]                 git pull the clone, then re-copy every recorded install
+devkit update [--no-pull]                 git pull the clone, re-copy every recorded install, update plugins
 devkit machine [<tool>…|--all]
 ```
 
@@ -94,24 +94,30 @@ Selecting a stack pulls in what it `requires` (`fastapi` → `python`, `react` �
 
 | Agent | Scope | Skills | Router | Rules |
 | --- | --- | --- | --- | --- |
-| claude | global | `~/.claude/skills/<name>` → `~/.agents/skills/<name>` | managed block in `~/.claude/CLAUDE.md` | `~/.agents/AGENTS/` |
-| claude | local | `.claude/skills/<name>` → `.agents/skills/<name>` | `AGENTS.md` block + `CLAUDE.md` importing it | `AGENTS/` |
-| codex | global | `~/.agents/skills/` | managed block in `~/.codex/AGENTS.md` | `~/.agents/AGENTS/` |
-| codex | local | `.agents/skills/` | managed block in `AGENTS.md` | `AGENTS/` |
-| cursor | global | `~/.agents/skills/` | none — Cursor has no file-based global rules (paste into User Rules) | `~/.agents/AGENTS/` |
-| cursor | local | `.agents/skills/` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
+| claude | global | `kick` plugin, user scope | managed block in `~/.claude/CLAUDE.md` | `~/.agents/AGENTS/` |
+| claude | local | `kick` plugin, project scope (`.claude/settings.json`) | `AGENTS.md` block + `CLAUDE.md` importing it | `AGENTS/` |
+| codex | global | `kick` plugin | managed block in `~/.codex/AGENTS.md` | `~/.agents/AGENTS/` |
+| codex | local | `kick` plugin, per user (Codex has no project scope) | managed block in `AGENTS.md` | `AGENTS/` |
+| cursor | global | copies in `~/.cursor/skills/` | none — Cursor has no file-based global rules (paste into User Rules) | `~/.agents/AGENTS/` |
+| cursor | local | copies in `.cursor/skills/` | `.cursor/rules/devkit.mdc` → `AGENTS.md` | `AGENTS/` |
 
-- One copy per scope: skills are **copied** into `.agents/skills/`, which Codex and Cursor
-  read directly; Claude does not, so `.claude/skills/<name>` is a relative symlink into it. Rules live
-  once under `AGENTS/`; the routers point at them. The repo stays the source of truth —
-  `devkit update` pulls and re-copies every install recorded in
-  `~/.config/devkit/installs.json`.
+- Claude Code and Codex get skills from the plugins, installed with their own CLIs from the
+  local clone as the `kicklabs` marketplace. Any selected kick skill installs the whole
+  `kick` plugin; `store-orchestrator` installs `store`. Claude Code loads a local marketplace
+  in place, so a pull reaches it at the next session; Codex copies the plugin into its cache,
+  and `devkit update` refreshes that copy. Cursor gets plain copies.
+- Rules live once under `AGENTS/`; the routers point at them. The repo stays the source of
+  truth — `devkit update` pulls, re-copies every install recorded in
+  `~/.config/devkit/installs.json`, and updates the plugins those installs added.
+- Files an earlier devkit wrote where it no longer writes (copies in `.agents/skills/`, links
+  in `.claude/skills/`) are deleted on the next install or update if unchanged since; edited
+  ones are left in place and reported. Nothing devkit did not write is touched.
 - Router files are edited only between `<!-- devkit:start -->` / `<!-- devkit:end -->`.
   Your own content outside the markers is never touched.
 - `AGENTS/project.md` is created once per project and never overwritten — that is where
   project-specific facts go.
-- `~/.config/devkit/installs.json` records every install and the sha256 of each written
-  file; `update` reports which files it changed on disk.
+- `~/.config/devkit/installs.json` records every install, the plugins it added, and the
+  sha256 of each written file; `update` reports which files it changed on disk.
 
 ## Layout
 

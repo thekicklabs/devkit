@@ -24,6 +24,11 @@ class Item:
     def label(self) -> str:
         return f"{self.kind}:{self.name}"
 
+    @property
+    def plugin(self) -> str:
+        """The plugin a skill ships in: plugins/<plugin>/skills/<name>."""
+        return self.path.parent.parent.name
+
 
 class UnknownItem(KeyError):
     pass
