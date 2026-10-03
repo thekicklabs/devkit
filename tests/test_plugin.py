@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+from devkit import frontmatter
+
 ROOT = Path(__file__).resolve().parents[1]
 CLAUDE_MARKET = ROOT / ".claude-plugin" / "marketplace.json"
 CODEX_MARKET = ROOT / ".agents" / "plugins" / "marketplace.json"
@@ -38,9 +40,19 @@ def test_runtime_manifests_agree(plugin: Path):
     assert claude["name"] == codex["name"] == plugin.name
     assert claude["version"] == codex["version"]
     assert (plugin / codex["skills"]).is_dir()
-    for agent in claude.get("agents", []):
-        assert (plugin / agent).is_file(), agent
+    assert "agents" not in claude, "an agents list hides agents/ from discovery"
     for manifest in (claude, codex):
         hooks = manifest.get("hooks")
         if isinstance(hooks, str):
             assert (plugin / hooks).is_file(), hooks
+
+
+@pytest.mark.parametrize("plugin", _plugin_dirs(), ids=lambda p: p.name)
+def test_agents_are_discoverable(plugin: Path):
+    names = []
+    for agent in sorted((plugin / "agents").glob("*.md")):
+        meta, _ = frontmatter.split(agent.read_text())
+        assert meta.get("name") == agent.stem, agent
+        assert meta.get("description"), agent
+        names.append(agent.stem)
+    assert len(names) == len(set(names))

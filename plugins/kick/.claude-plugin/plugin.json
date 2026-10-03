@@ -16,10 +16,5 @@
     "tdd",
     "subagents",
     "codex"
-  ],
-  "agents": [
-    "./agents/worker.md",
-    "./agents/reviewer.md",
-    "./agents/comment-sicko.md"
   ]
 }
