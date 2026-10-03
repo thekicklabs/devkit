@@ -1,98 +1,81 @@
 ---
 name: interrogate
-description: "Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"find blind spots\", or \"tear this apart\". Multiple LLM reviewers challenge changes from independent angles."
+description: "Adversarial review of a diff by several agents at once: an in-process reviewer plus headless Claude Code and Codex CLIs, all read-only, with you as the judge. Use for \"interrogate\", \"adversarial review\", \"multi-model review\", \"challenge this\", \"stress test this code\", \"tear this apart\", or before reporting a non-trivial diff done."
 ---
 
 # Interrogate
 
 On Codex, read the [platform mapping](../kick-mode/references/codex-tools.md) before following this skill.
 
-Spawn one reviewer per configured model to adversarially review code changes. Each model gets the same prompt and rubric. The adversarial signal comes from model diversity, not assigned personas.
+Reviewers from different vendors review the same diff against the same brief, in parallel and read-only. You are the judge: dedupe, try to disprove, bucket. The deliverable is a verdict. Nothing changes here; fixes happen only inside an [Autonomous run](../kick-mode/playbooks/autonomous-run.md).
 
-The deliverable is a synthesized verdict. Do NOT auto-apply changes.
+The diff, and any file a reviewer opens, goes to that reviewer's vendor. Claude reviewers are denied `.env` files, and the brief tells every reviewer not to open secrets; Codex's read-only sandbox can still read them.
 
-## Step 1, Determine Scope
+`scripts/` below means this skill's `scripts/` directory under the installed plugin.
 
-Identify what to review from context:
+## 1. Scope
 
-- If the user points at specific files or a diff, use that
-- If on a feature branch, run `git diff main...HEAD` (or the appropriate base branch) for the full changeset
-- If the user's message references recent work, gather the relevant files
+Pick the diff from the request: uncommitted changes (`--uncommitted`), the branch against its base (`--base <ref>`), or a PR (`--pr <number>`). When the request does not say, use the uncommitted changes if there are any, otherwise the branch against its base.
 
-Package the diff (or file contents) plus any surrounding context files the reviewers need to understand the code.
+## 2. Intent
 
-## Step 2, State the Intent
+Write one paragraph: what the change is for, from the user's words, the commits, and the PR body. If you are unsure, ask. Inside an autonomous run, log your reading instead.
 
-Before spawning reviewers, state the intent explicitly. Derive this from:
+## 3. Prepare
 
-- The user's message
-- Commit messages
-- PR description if one exists
-- The code itself
+```bash
+scripts/review.sh prepare --uncommitted <<'EOF'
+<the intent paragraph>
+EOF
+```
 
-Write one clear paragraph. If you're unsure about the intent, ask the user before proceeding.
+It prints the run directory, `$(git rev-parse --git-dir)/kick/<timestamp>/`, and stops if the diff is empty. The directory holds `diff.patch`, `intent.md`, `schema.json`, `prompt.md`, and `state`. The brief in `prompt.md` takes its dimensions, disprove step, and severity and confidence scales from the `code-review` skill, plus the project's `AGENTS.md` or `CLAUDE.md` and any `AGENTS/*/review.md`; reviewers run without the user's instructions files. `state` snapshots HEAD, `git status`, and the working-tree content.
 
-## Step 3, Spawn Reviewers
+## 4. Roster
 
-Launch all reviewers in a single message: one `subagent_type: "kick:reviewer"` per entry of the `panel` role from [models](../kick-mode/references/models.md). Apply the read-only guard from kick-mode's Subagents section.
+`grep '^reviewers:'` the config from [models](../kick-mode/references/models.md). Entries are `self` (an in-process `kick:reviewer`) and CLI names.
 
-Read `references/reviewer-prompt.md` and fill in the template with:
-1. The stated intent
-2. The diff or file contents
-3. The review rubric from `references/rubric.md`
-4. The code-quality lens from `references/code-quality-review.md`
+If the line is missing, run `scripts/detect-reviewers.sh`, propose `self` plus every installed, authed, `stable` CLI, and ask (`AskUserQuestion` on Claude Code, plain text on Codex). Save the answer as a `reviewers:` line in the config; `setup-kick` owns the rest of the file.
 
-The same filled template goes to all reviewers, so every model applies the code-quality lens.
+Skip the CLI of the runtime you are running in (`claude` on Claude Code, `codex` on Codex): `self` covers that vendor more cheaply. `agent`, `gemini`, and `opencode` are experimental; their commands are unverified, so say so when one runs.
 
-## Step 4, Synthesize
+State the roster in one line before dispatch, such as `Reviewers: self (opus), codex (gpt-6.1-sol @high)`.
 
-As results come back, build a unified picture:
+## 5. Dispatch in one turn
 
-1. **Parse all findings** from the reviewers
-2. **Identify consensus**. Findings raised by 2+ models independently are highest signal.
-3. **Identify lone-model findings**. Still worth reading, but weight accordingly.
-4. **Deduplicate**. Different models may describe the same issue differently. Merge these and note which models raised it.
-5. **Note disagreements**. If one model flags something and another explicitly says the opposite, that's useful context for the verdict.
+- **self.** Spawn `subagent_type: "kick:reviewer"` on the `reviewer` role's model with the brief "Follow `<run>/prompt.md` and return only the JSON object it asks for."
+- **Each CLI.** Run `scripts/review.sh run <cli> <run>` in the background. On Claude Code use the Bash tool's `run_in_background`, because a foreground command stops at 10 minutes. `KICK_REVIEW_TIMEOUT` bounds each run (900 seconds by default). The reviewer's model comes from the config's `<cli> reviewer:` line; the effort is always `high`.
 
-## Step 5, Lead Judgment
+## 6. Collect
 
-You are the lead reviewer, a pragmatic senior engineer, not a neutral aggregator.
+Each CLI run writes `<run>/<cli>.status`:
 
-Read `references/lead-judgment.md` for the full framework.
+| Status | Meaning |
+| --- | --- |
+| `ok` | finished; parse its output |
+| `timeout` | hit the limit |
+| `failed` | exited non-zero; read `<cli>.err` |
+| `tainted` | HEAD, `git status`, or file content changed during the run; discard its findings and show the user `git status` |
 
-Categorize every finding using these buckets:
+Parse the output yourself. Claude Code prints a JSON envelope with the findings object in `structured_output`. Codex writes the object to `codex.json`. For `self`, apply kick-mode's read-only guard.
 
-- **Act on**. Real issues affecting correctness, security, or maintainability given the actual goals. These would block a real PR.
-- **Consider**. Legitimate points, but you're not sure they outweigh the cost of addressing them right now. Worth the user's attention.
-- **Noted**. Technically valid but not actionable. Context-dependent, premature optimization, or low-impact given the current stage.
-- **Dismissed**. Wrong, nitpicky, or missing context. Brief explanation why.
+Report every failure and what it cost, such as "Codex timed out, so this review covers one vendor."
 
-For each finding, include:
-- Which model(s) raised it
-- The category (act on / consider / noted / dismissed)
-- A one-line rationale for the categorization
+## 7. Judge
 
-## Output Format
+You are the lead reviewer, not an aggregator. Read [`references/lead-judgment.md`](references/lead-judgment.md).
 
-Present the verdict in this structure:
+1. Dedupe by root cause, and note which reviewers raised each.
+2. Build the agreement map. A root cause two or more reviewers found independently is high signal.
+3. Try to disprove each finding against the code, per step 3 of `code-review`. Never accept a finding on a reviewer's word.
+4. Bucket each survivor as **Act on**, **Consider**, **Noted**, or **Dismissed**, with a one-line reason.
 
-### Intent
-> [The stated intent paragraph from Step 2]
+## 8. Report
 
-### Reviewers
-- Reviewer [label]: [model name], [N findings] (one bullet per reviewer)
+- **Intent.** The paragraph from step 2.
+- **Roster.** Each reviewer, its model, its status, and its finding count.
+- **Act on**, **Consider**, **Noted**, **Dismissed.** Each finding with its location, which reviewers raised it, and your reason.
+- **Agreement map.** Where reviewers converged and diverged, and what that says.
+- **Run directory.** The path, so the raw outputs can be read.
 
-### Act On
-[Findings that should be addressed. For each: description, which models raised it, why it matters.]
-
-### Consider
-[Findings worth thinking about. For each: description, which models raised it, tradeoff involved.]
-
-### Noted
-[Valid but low-priority. Brief list.]
-
-### Dismissed
-[Rejected findings with brief rationale.]
-
-### Agreement Map
-[Where did models agree, where did they diverge, and what does the pattern of agreement/disagreement tell us?]
+Inside an autonomous run, fix the Act-on findings, rerun the suite, and interrogate again, for at most two rounds. Log whatever remains.

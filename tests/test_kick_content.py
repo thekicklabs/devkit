@@ -11,7 +11,7 @@ BANNED = {
     "pstack:": r"pstack:",
     "Bugbot": r"(?i)bugbot",
     "origin pr": r"\borigin pr\b",
-    "gt ": r"\bgt ",
+    "gt ": r"(?:^|[\s`(])gt\s",
     "fable": r"(?i)fable",
     "astra": r"(?i)astra",
     "xhigh": r"xhigh",
