@@ -41,3 +41,22 @@ def test_install_and_update_report_plugin_steps(home, project, plugin_cli):
     out = _invoke(home, "update", "--no-pull").output
     assert "plugin (codex) kick@kicklabs: updated" in out
     assert plugin_cli.ran("codex", "plugin", "add", "kick@kicklabs") == [None, None]
+
+
+def test_update_reports_a_failed_plugin_and_exits_nonzero(home, project, plugin_cli):
+    _install(home, project, "--skill", "plan")
+    plugin_cli.failing.add("codex plugin add kick@kicklabs")
+    result = runner.invoke(app, ["update", "--no-pull"], env={"DEVKIT_HOME_DIR": str(home)})
+    assert result.exit_code == 1
+    assert "plugin (codex) kick@kicklabs: failed: boom" in result.output
+
+
+def test_install_exits_nonzero_when_a_plugin_fails(home, project, plugin_cli):
+    plugin_cli.failing.add("codex plugin add kick@kicklabs")
+    result = runner.invoke(
+        app,
+        ["install", "--local", "--path", str(project), "--agent", "codex", "--skill", "plan"],
+        env={"DEVKIT_HOME_DIR": str(home)},
+    )
+    assert result.exit_code == 1
+    assert "failed: boom" in result.output

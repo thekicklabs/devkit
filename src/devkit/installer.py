@@ -158,7 +158,9 @@ def install(catalog: Catalog, req: Request, run: plugins.Runner | None = None) -
         if not stub.exists():
             _write(stub, _template("project.md"), report, "project stub (created once)")
 
-    _prune(req, entry, report)
+    # Old copies stay until the plugin that replaces them is in place.
+    if all(step.ok for step in report.steps):
+        _prune(req, entry, report)
     _record(req, entry, report)
     return report
 
@@ -173,7 +175,7 @@ def _owned(req: Request, agents: list[str]) -> list[Path]:
 
 
 def _prune(req: Request, entry: dict, report: Report) -> None:
-    """Delete recorded files devkit no longer writes anywhere, unless edited since."""
+    """Delete recorded files devkit no longer writes anywhere, unless edited or behind a link."""
     written = {w.path for w in report.written}
     owned = _owned(req, sorted(set(entry.get("agents", [])) | set(req.agents)))
     stop = req.home if req.project is None else req.project
@@ -183,7 +185,8 @@ def _prune(req: Request, entry: dict, report: Report) -> None:
             continue
         if not path.is_symlink() and not path.is_file():
             continue
-        if _fingerprint(path) != recorded:
+        linked = any(p.is_symlink() for p in path.parents if stop in p.parents)
+        if linked or _fingerprint(path) != recorded:
             report.kept.append(path)
             continue
         path.unlink()
@@ -248,6 +251,7 @@ class Outcome:
     unchanged: int = 0
     pruned: list[Path] = field(default_factory=list)
     kept: list[Path] = field(default_factory=list)
+    steps: list[plugins.Step] = field(default_factory=list)
     skipped: str | None = None
     error: str | None = None
 
@@ -281,7 +285,7 @@ def refresh(catalog: Catalog, home: Path, run: plugins.Runner | None = None) -> 
         except (UnknownItem, ValueError) as e:
             outcome.error = str(e)
             continue
-        outcome.pruned, outcome.kept = report.pruned, report.kept
+        outcome.pruned, outcome.kept, outcome.steps = report.pruned, report.kept, report.steps
         for w in report.written:
             if before.get(str(w.path)) == _fingerprint(w.path):
                 outcome.unchanged += 1

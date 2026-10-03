@@ -8,6 +8,7 @@ import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 MARKETPLACE = "kicklabs"
 AGENTS = ("claude", "codex")
@@ -26,7 +27,12 @@ Runner = Callable[[list[str], Path | None], Result]
 def system_runner(argv: list[str], cwd: Path | None) -> Result:
     if shutil.which(argv[0]) is None:
         return Result(127, stderr=f"{argv[0]}: not found")
-    done = subprocess.run(argv, cwd=cwd, capture_output=True, text=True)
+    try:
+        done = subprocess.run(
+            argv, cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=600
+        )
+    except subprocess.TimeoutExpired:
+        return Result(124, stderr=f"{' '.join(argv)}: timed out")
     return Result(done.returncode, done.stdout, done.stderr)
 
 
@@ -48,10 +54,28 @@ def plugin_id(name: str) -> str:
 def _failed(agent: str, subject: str, result: Result) -> Step:
     if result.returncode == 127:
         return Step(agent, subject, f"skipped: {agent} not found")
+    if result.returncode == 0:
+        return Step(agent, subject, "failed: unreadable output")
     detail = (result.stderr or result.stdout).strip().splitlines()
     return Step(
         agent, subject, "failed: " + (detail[-1] if detail else f"exit {result.returncode}")
     )
+
+
+def _parse(result: Result) -> Any:
+    try:
+        return json.loads(result.stdout)
+    except ValueError:
+        return None
+
+
+def _conflict(agent: str, registered: str, source: Path) -> Step:
+    outcome = f"failed: registered from {registered}, not {source}; remove it to use the clone"
+    return Step(agent, f"marketplace {MARKETPLACE}", outcome)
+
+
+def _same(path: str | None, source: Path) -> bool:
+    return path is not None and Path(path).resolve() == source.resolve()
 
 
 def _step(agent: str, subject: str, result: Result, success: str) -> Step:
@@ -70,23 +94,32 @@ def ensure(
 
 
 def _ensure_claude(ids: list[str], source: Path, project: Path | None, run: Runner) -> list[Step]:
+    subject = f"marketplace {MARKETPLACE}"
     listed = run(["claude", "plugin", "marketplace", "list", "--json"], project)
-    if listed.returncode:
-        return [_failed("claude", f"marketplace {MARKETPLACE}", listed)]
+    markets = _parse(listed)
+    if listed.returncode or not isinstance(markets, list):
+        return [_failed("claude", subject, listed)]
     steps = []
-    if MARKETPLACE not in {m.get("name") for m in json.loads(listed.stdout or "[]")}:
+    market = next((m for m in markets if m.get("name") == MARKETPLACE), None)
+    if market is None:
         added = run(["claude", "plugin", "marketplace", "add", str(source)], project)
         if added.returncode:
-            return [_failed("claude", f"marketplace {MARKETPLACE}", added)]
-        steps.append(Step("claude", f"marketplace {MARKETPLACE}", "added"))
+            return [_failed("claude", subject, added)]
+        steps.append(Step("claude", subject, "added"))
+    elif not _same(market.get("path"), source):
+        where = (
+            market.get("repo") or market.get("url") or market.get("path") or market.get("source")
+        )
+        return [_conflict("claude", str(where), source)]
 
-    plugins = run(["claude", "plugin", "list", "--json"], project)
-    if plugins.returncode:
-        return [*steps, _failed("claude", "plugins", plugins)]
+    listed = run(["claude", "plugin", "list", "--json"], project)
+    installed = _parse(listed)
+    if listed.returncode or not isinstance(installed, list):
+        return [*steps, _failed("claude", "plugins", listed)]
     scope = "user" if project is None else "project"
     present = {
         p.get("id")
-        for p in json.loads(plugins.stdout or "[]")
+        for p in installed
         if p.get("scope") == scope and (project is None or p.get("projectPath") == str(project))
     }
     for pid in ids:
@@ -99,20 +132,29 @@ def _ensure_claude(ids: list[str], source: Path, project: Path | None, run: Runn
 
 
 def _ensure_codex(ids: list[str], source: Path, run: Runner) -> list[Step]:
+    subject = f"marketplace {MARKETPLACE}"
     listed = run(["codex", "plugin", "marketplace", "list"], None)
     if listed.returncode:
-        return [_failed("codex", f"marketplace {MARKETPLACE}", listed)]
+        return [_failed("codex", subject, listed)]
+    roots = {
+        cols[0]: cols[1]
+        for cols in (line.split(None, 1) for line in listed.stdout.splitlines())
+        if len(cols) == 2
+    }
     steps = []
-    if not any(line.split()[:1] == [MARKETPLACE] for line in listed.stdout.splitlines()):
+    if MARKETPLACE not in roots:
         added = run(["codex", "plugin", "marketplace", "add", str(source)], None)
         if added.returncode:
-            return [_failed("codex", f"marketplace {MARKETPLACE}", added)]
-        steps.append(Step("codex", f"marketplace {MARKETPLACE}", "added"))
+            return [_failed("codex", subject, added)]
+        steps.append(Step("codex", subject, "added"))
+    elif not _same(roots[MARKETPLACE].strip(), source):
+        return [_conflict("codex", roots[MARKETPLACE].strip(), source)]
 
-    plugins = run(["codex", "plugin", "list", "--json"], None)
-    if plugins.returncode:
-        return [*steps, _failed("codex", "plugins", plugins)]
-    present = {p.get("pluginId") for p in json.loads(plugins.stdout or "{}").get("installed", [])}
+    listed = run(["codex", "plugin", "list", "--json"], None)
+    installed = _parse(listed)
+    if listed.returncode or not isinstance(installed, dict):
+        return [*steps, _failed("codex", "plugins", listed)]
+    present = {p.get("pluginId") for p in installed.get("installed", [])}
     for pid in ids:
         if pid in present:
             steps.append(Step("codex", pid, "present"))

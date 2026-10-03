@@ -179,8 +179,10 @@ def install(
     if report.pruned:
         table.add_row("pruned old copies", _summarise(report.pruned, home_dir))
     if report.kept:
-        table.add_row("left in place (edited)", _summarise(report.kept, home_dir))
+        table.add_row("left in place (edited or behind a link)", _summarise(report.kept, home_dir))
     console.print(table)
+    if any(s.outcome.startswith("failed") for s in report.steps):
+        raise typer.Exit(1)
     added = [s for s in report.stacks if s not in req.stacks and s not in already]
     if added:
         console.print(f"[dim]added required stack(s): {', '.join(added)}[/dim]")
@@ -216,10 +218,11 @@ def update(
         if o.pruned:
             notes.append(f"{len(o.pruned)} old copies pruned")
         if o.kept:
-            notes.append(f"{len(o.kept)} edited copies left in place")
+            notes.append(f"{len(o.kept)} copies left in place")
         table.add_row(where, o.scope, changed, ", ".join(notes))
     console.print(table)
-    steps = installer.update_plugins(home_dir)
+    steps = [s for o in outcomes for s in o.steps if s.outcome != "present"]
+    steps += installer.update_plugins(home_dir)
     for step in steps:
         console.print(f"plugin ({step.agent}) {step.subject}: {step.outcome}")
     if any(o.error for o in outcomes) or any(s.outcome.startswith("failed") for s in steps):

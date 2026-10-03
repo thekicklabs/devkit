@@ -53,7 +53,7 @@ OpenCode and the other agents it supports. Skills only: no agents, hook or rules
 | Skills | yes, 40+ agents | yes, claude / codex / cursor | yes, Claude Code and Codex |
 | Rules, router, stacks | no | yes, through a managed block | no |
 | Agents and hooks | no | no | yes |
-| Codex global path | `~/.codex/skills` (deprecated) | `~/.agents/skills` | plugin cache |
+| Codex global path | `~/.codex/skills` (deprecated) | plugin cache, through `kick` | plugin cache |
 | Update / uninstall | lockfile + `update` / `remove` | `devkit update` / none | `plugin update` / `uninstall` |
 | Machine bootstrap | no | yes | no |
 | Needs | Node | uv and a clone | nothing |
@@ -110,8 +110,12 @@ Selecting a stack pulls in what it `requires` (`fastapi` → `python`, `react` �
   truth — `devkit update` pulls, re-copies every install recorded in
   `~/.config/devkit/installs.json`, and updates the plugins those installs added.
 - Files an earlier devkit wrote where it no longer writes (copies in `.agents/skills/`, links
-  in `.claude/skills/`) are deleted on the next install or update if unchanged since; edited
-  ones are left in place and reported. Nothing devkit did not write is touched.
+  in `.claude/skills/`) are deleted on the next install or update, once the plugin that
+  replaces them is installed and only if unchanged since. Edited ones, and any reached
+  through a link, are left in place and reported. Nothing devkit did not write is touched.
+- A `kicklabs` marketplace already registered from somewhere else, such as GitHub, is
+  reported as a conflict rather than used. A failed plugin step makes `install` and
+  `update` exit non-zero.
 - Router files are edited only between `<!-- devkit:start -->` / `<!-- devkit:end -->`.
   Your own content outside the markers is never touched.
 - `AGENTS/project.md` is created once per project and never overwritten — that is where

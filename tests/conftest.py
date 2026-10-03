@@ -31,11 +31,17 @@ def project(tmp_path: Path) -> Path:
 class FakePluginCli:
     """Stands in for the `claude plugin` and `codex plugin` CLIs."""
 
-    def __init__(self, missing: tuple[str, ...] = (), failing: tuple[str, ...] = ()) -> None:
+    def __init__(
+        self,
+        missing: tuple[str, ...] = (),
+        failing: tuple[str, ...] = (),
+        garbled: tuple[str, ...] = (),
+    ) -> None:
         self.calls: list[tuple[tuple[str, ...], Path | None]] = []
         self.missing = set(missing)
         self.failing = set(failing)
-        self.markets: dict[str, set[str]] = {"claude": set(), "codex": set()}
+        self.garbled = set(garbled)
+        self.markets: dict[str, dict[str, str]] = {"claude": {}, "codex": {}}
         self.claude_plugins: list[dict] = []
         self.codex_plugins: set[str] = set()
 
@@ -49,15 +55,20 @@ class FakePluginCli:
             return Result(127, stderr=f"{tool}: not found")
         if " ".join(argv) in self.failing:
             return Result(1, stderr="boom")
+        if " ".join(argv) in self.garbled:
+            return Result(0, "WARNING: not json")
         match tool, rest:
             case "claude", ["plugin", "marketplace", "list", "--json"]:
-                return Result(0, json.dumps([{"name": n} for n in sorted(self.markets[tool])]))
+                markets = [
+                    {"name": n, "source": "directory", "path": p}
+                    for n, p in sorted(self.markets[tool].items())
+                ]
+                return Result(0, json.dumps(markets))
             case "codex", ["plugin", "marketplace", "list"]:
-                return Result(
-                    0, "MARKETPLACE  ROOT\n" + "".join(f"{n}  /x\n" for n in self.markets[tool])
-                )
-            case _, ["plugin", "marketplace", "add", _]:
-                self.markets[tool].add("kicklabs")
+                rows = "".join(f"{n}  {p}\n" for n, p in sorted(self.markets[tool].items()))
+                return Result(0, "MARKETPLACE  ROOT\n" + rows)
+            case _, ["plugin", "marketplace", "add", source]:
+                self.markets[tool]["kicklabs"] = source
                 return Result(0)
             case "claude", ["plugin", "list", "--json"]:
                 return Result(0, json.dumps(self.claude_plugins))

@@ -270,3 +270,67 @@ def test_partial_install_keeps_other_current_copies(catalog, home, project, plug
     assert report.pruned == [] and report.kept == []
     assert (project / ".cursor" / "skills" / "plan" / "SKILL.md").exists()
     assert os.path.isdir(project / ".cursor" / "skills" / "tdd")
+
+
+def _write_manifest(home: Path, files: dict[str, str], agents=("claude", "codex")) -> None:
+    manifest = {
+        "installs": {
+            "global": {
+                "scope": "global",
+                "agents": list(agents),
+                "skills": ["plan", "tdd"],
+                "stacks": [],
+                "files": files,
+            }
+        },
+        "last": None,
+    }
+    installer.manifest_path(home).parent.mkdir(parents=True, exist_ok=True)
+    installer.manifest_path(home).write_text(json.dumps(manifest))
+
+
+@pytest.mark.parametrize(
+    "cli",
+    [FakePluginCli(missing=("codex",)), FakePluginCli(failing=("codex plugin add kick@kicklabs",))],
+    ids=["missing", "failing"],
+)
+def test_old_copies_stay_until_the_plugin_is_in_place(catalog, home, cli):
+    files = _legacy_global(home)
+    _write_manifest(home, files)
+
+    (outcome,) = installer.refresh(catalog, home, cli)
+
+    assert outcome.pruned == []
+    assert (home / ".agents" / "skills" / "plan" / "SKILL.md").exists()
+    assert (home / ".claude" / "skills" / "plan").is_symlink()
+    recorded = json.loads(installer.manifest_path(home).read_text())["installs"]["global"]
+    assert set(files) <= set(recorded["files"])
+
+
+def test_prune_never_follows_a_linked_directory(catalog, home, plugin_cli, tmp_path):
+    elsewhere = tmp_path / "elsewhere" / "plan"
+    elsewhere.mkdir(parents=True)
+    (elsewhere / "SKILL.md").write_text("old plan\n")
+    recorded = home / ".agents" / "skills" / "plan" / "SKILL.md"
+    recorded.parent.parent.mkdir(parents=True)
+    recorded.parent.symlink_to(elsewhere, target_is_directory=True)
+    _write_manifest(home, {str(recorded): installer._fingerprint(recorded)})
+
+    (outcome,) = installer.refresh(catalog, home, plugin_cli)
+
+    assert outcome.pruned == [] and outcome.kept == [recorded]
+    assert (elsewhere / "SKILL.md").exists()
+
+
+def test_a_marketplace_from_another_source_is_a_conflict(catalog, home, project, plugin_cli):
+    plugin_cli.markets["codex"]["kicklabs"] = "/somewhere/else"
+    report = installer.install(catalog, _req(home, project, ["codex"]), plugin_cli)
+    (step,) = report.steps
+    assert step.outcome.startswith("failed: registered from /somewhere/else")
+    assert plugin_cli.ran("codex", "plugin", "add", "kick@kicklabs") == []
+
+
+def test_unreadable_cli_output_is_a_failed_step(catalog, home, project):
+    cli = FakePluginCli(garbled=("claude plugin list --json",))
+    report = installer.install(catalog, _req(home, project, ["claude"]), cli)
+    assert report.steps[-1].outcome == "failed: unreadable output"
