@@ -46,6 +46,9 @@ anything touching auth, payments, or personal data · deleting or overwriting ex
 migration or backward-compatibility code (it is often for a feature nothing uses) · a
 departure from a rule in these files.
 
+**Hands-off:** only inside an autonomous run the user starts, where the `kick-mode` skill's
+Autonomous run playbook logs each Ask item and takes it if reversible; irreversible ones stop.
+
 ## Changing a convention
 
 Rules live in exactly one file. To change one:
