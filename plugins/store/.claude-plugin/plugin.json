@@ -1,0 +1,13 @@
+{
+  "name": "store",
+  "displayName": "store",
+  "version": "0.1.0",
+  "description": "App Store Connect listings, pricing, RevenueCat setup and release readiness from store.yaml.",
+  "author": {
+    "name": "thekicklabs",
+    "url": "https://github.com/thekicklabs"
+  },
+  "homepage": "https://github.com/thekicklabs/devkit",
+  "repository": "https://github.com/thekicklabs/devkit",
+  "keywords": ["app-store-connect", "revenuecat", "release"]
+}

@@ -1,0 +1,13 @@
+{
+  "name": "kick",
+  "displayName": "kick",
+  "version": "0.1.0",
+  "description": "Plan, build test-first, debug, review across agents, and ship, sized for everyday subscription budgets.",
+  "author": {
+    "name": "thekicklabs",
+    "url": "https://github.com/thekicklabs"
+  },
+  "homepage": "https://github.com/thekicklabs/devkit",
+  "repository": "https://github.com/thekicklabs/devkit",
+  "keywords": ["workflow", "skills", "code-review", "tdd", "subagents", "codex"]
+}

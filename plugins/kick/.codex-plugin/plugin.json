@@ -1,0 +1,23 @@
+{
+  "name": "kick",
+  "version": "0.1.0",
+  "description": "Plan, build test-first, debug, review across agents, and ship, sized for everyday subscription budgets.",
+  "author": {
+    "name": "thekicklabs",
+    "url": "https://github.com/thekicklabs"
+  },
+  "homepage": "https://github.com/thekicklabs/devkit",
+  "repository": "https://github.com/thekicklabs/devkit",
+  "keywords": ["workflow", "skills", "code-review", "tdd", "subagents", "codex"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "kick",
+    "shortDescription": "Plan, test-first, debug, cross-agent review, ship",
+    "longDescription": "kick routes work to the right skill: plan before code, build test-first, chase bugs from a failing test, review a diff with Claude and Codex side by side, and commit with the suite pasted.",
+    "developerName": "thekicklabs",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": ["Plan this change with kick.", "Interrogate this diff."],
+    "websiteURL": "https://github.com/thekicklabs/devkit"
+  }
+}
