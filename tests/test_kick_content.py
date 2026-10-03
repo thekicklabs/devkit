@@ -12,6 +12,12 @@ BANNED = {
     "Bugbot": r"(?i)bugbot",
     "origin pr": r"\borigin pr\b",
     "gt ": r"\bgt ",
+    "fable": r"(?i)fable",
+    "astra": r"(?i)astra",
+    "xhigh": r"xhigh",
+    "@max": r"@max",
+    "haiku": r"(?i)haiku",
+    "readonly: true": r"readonly`?:\s*`?true",
 }
 
 

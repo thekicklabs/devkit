@@ -9,58 +9,25 @@ On Codex, read the [platform mapping](../kick-mode/references/codex-tools.md) be
 
 Explore the codebase to answer "how does X work?" questions. Produce architectural explanations at the level of a senior engineer onboarding onto a subsystem, enough to build a working mental model, not so much that it reads like annotated source code.
 
-Each spawn below names a role line in `pstack-models.md` and a default in [Models](#models). Set `model` to that line's value, or to the default if the sheet or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the `Agent` tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message.
-
-## Step 1. Assess Complexity
+## Step 1. Assess complexity
 
 If the scope is ambiguous, state your interpretation and explore. The user can redirect.
 
-- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no explorers. One explainer explores and explains in a single pass. Go to Step 2b.
-- **Complex** (a subsystem spanning multiple files or services, a cross-cutting feature, a full architectural overview): spawn parallel explorers first, then hand off to the explainer. Go to Step 2a.
+- **Simple** (a single module, a small utility, a narrow question such as "how does function X work"): no subagents. Read the code and explain it yourself in one pass. Go to Step 3.
+- **Complex** (a subsystem spanning several files or services, a cross-cutting feature, a full architectural overview): spawn explorers first. Go to Step 2.
 
 When in doubt, take the simple path.
 
-## Step 2a. Explore (complex questions only)
+## Step 2. Explore (complex questions only)
 
-Decompose the question into 2 to 4 exploration angles, each a distinct slice of the subsystem. Spawn all explorers in a single message:
+Split the question into at most two exploration angles, each a distinct slice of the subsystem. Spawn both explorers in one message on the `fast` role from [models](../kick-mode/references/models.md). On Claude Code use the read-only `subagent_type: "Explore"`; on Codex, apply the read-only guard from kick-mode's Subagents section.
 
-- `subagent_type`: `general-purpose`
-- `model`: the `how explorer` line, default in [Models](#models)
-- `readonly`: `true`
+Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in.
 
-Each explorer gets the prompt in `references/explorer-prompt.md` with its angle filled in. Then go to Step 3.
+## Step 3. Explain
 
-## Step 2b. Direct Explain (simple questions)
+Write the explanation yourself, following `references/explainer-prompt.md`. For a complex question, build it from every explorer's findings and spot-check the claims you lean on against the code.
 
-Spawn one `Agent` subagent that explores and explains in one pass:
-
-- `subagent_type`: `general-purpose`
-- `model`: the `how explainer` line, default in [Models](#models)
-- `readonly`: `true`
-
-Build its prompt from `references/explainer-prompt.md` without the explorer-findings section. Go to Step 4.
-
-## Step 3. Synthesize (complex questions only)
-
-Once all explorers have returned, spawn one `Agent` subagent to synthesize their findings into one explanation:
-
-- `subagent_type`: `general-purpose`
-- `model`: the `how explainer` line, default in [Models](#models)
-- `readonly`: `true`
-
-Build its prompt from `references/explainer-prompt.md` with every explorer's findings filled in.
-
-## Step 4. Present
-
-Present the explainer's output to the user. Light edits for clarity or context from the conversation are fine. Do not substantially rewrite it.
-
-## Output Format
+## Output format
 
 The explanation uses the sections defined in `references/explainer-prompt.md`, dropping any that do not apply: Overview, Key Concepts, How It Works, Where Things Live, Gotchas.
-
-## Models
-
-Role defaults, stamped from `plugins/pstack/models.json` (edit there, rerun `tools/generate.mjs`). A matching role line in the `pstack-models.md` override sheet overrides each at runtime.
-
-- how explorer: `opus`
-- how explainer: `opus`

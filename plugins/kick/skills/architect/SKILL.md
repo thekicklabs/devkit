@@ -7,7 +7,7 @@ description: "Sketch types, signatures, and module structure before code, then s
 
 On Codex, read the [platform mapping](../kick-mode/references/codex-tools.md) before following this skill.
 
-Design before implementing. Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Synthesize across multiple model perspectives, then fill in code against the chosen sketch. If implementation proves the sketch wrong, throw it out and redesign.
+Design before implementing. Sketch types, function signatures, class shapes, and module boundaries with `not implemented` bodies and pseudocode. Compare the sketch against a structurally different alternative, then fill in code against the chosen one. If implementation proves the sketch wrong, throw it out and redesign.
 
 ## Start
 
@@ -29,17 +29,17 @@ Skip Phase A only when the work is genuinely greenfield with no surrounding syst
 
 ## Phase B: Sketch
 
-Run the **arena** skill with the design-sketch task and the Phase A grounding artifacts. Pass `references/runner-prompt.md` as each runner's prompt. Each candidate produces a design package shaped per `references/rationale-template.md`.
+Write the sketch yourself from the Phase A grounding, following `references/runner-prompt.md`, as a design package shaped per `references/rationale-template.md`.
 
-Take the runners from the `architect runners` line in `pstack-models.md`, in place of the `arena runners` line. If the sheet or that line is missing, use the defaults in [Models](#models). Alias and rejected entries follow the runner rules in the **arena** skill's Phase A.
-
-Design it twice. Require at least two structurally distinct candidates before synthesis, even when the first looks sufficient. This is the [exhaust-the-design-space](../kick-mode/principles/exhaust-the-design-space.md) principle made concrete. Whole-shape alternatives, not point fixes inside one shape.
+Design it twice. Write one structurally distinct alternative before choosing, even when the first looks sufficient. This is the [exhaust-the-design-space](../kick-mode/principles/exhaust-the-design-space.md) principle made concrete. Whole-shape alternatives, not point fixes inside one shape.
 
 Screen every candidate against [`references/design-red-flags.md`](references/design-red-flags.md) before synthesis. Reject or revise shallow modules, information leakage, temporal decomposition, and pass-through methods.
 
 Compare viable candidates on interface depth. Prefer the design that hides more complexity behind a smaller, simpler public surface. A rich interface can keep call chains short by concentrating capability instead of scattering it across layers.
 
-Arena returns one synthesized design package. The synthesis decision populates the rationale's "Synthesis decision" section.
+The choice between the two, and anything grafted from the loser, populates the rationale's "Synthesis decision" section.
+
+Run the **arena** skill instead, with `references/runner-prompt.md` as each runner's prompt and the `panel` role's runners, only when the user asks for it or accepts your offer. Offer it for a one-way-door design with no precedent in the codebase.
 
 ## Phase C: Agree (opt-in)
 
@@ -81,14 +81,8 @@ When you scrap:
 1. Re-run the **how** skill over what's been built.
 2. Redesign as if the new constraints had been day-one assumptions, per [redesign-from-first-principles](../kick-mode/principles/redesign-from-first-principles.md).
 3. Subtract before adding, per the [subtract-before-you-add](../kick-mode/principles/subtract-before-you-add.md) principle. The new sketch should be smaller than the old one before it grows.
-4. Return to Phase B and re-run arena.
+4. Return to Phase B.
 
 ## Outputs
 
 The caller's usage is written first and the type sketch derived from it. One file with new types and signatures for small changes. Module map plus type definitions for larger work. The rationale ships alongside, shaped per `references/rationale-template.md`, including the usage sketch and the synthesis decision.
-
-## Models
-
-Role defaults, stamped from `plugins/pstack/models.json` (edit there, rerun `tools/generate.mjs`). A matching role line in the `pstack-models.md` override sheet overrides each at runtime.
-
-- architect runners: `opus`, `fable`, `sonnet`

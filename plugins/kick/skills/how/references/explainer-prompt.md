@@ -1,6 +1,6 @@
 # Explainer Prompt Template
 
-Build the explainer subagent's prompt from this template. Fill in the placeholders.
+Follow this template when you write the explanation. For a simple question, drop the explorer-findings section and explore the code yourself.
 
 ---
 

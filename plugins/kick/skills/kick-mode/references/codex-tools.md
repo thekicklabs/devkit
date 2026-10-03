@@ -22,7 +22,9 @@ Subagents need `[features] multi_agent = true` in `~/.codex/config.toml`. Withou
 
 ## Subagents
 
-Codex plugins ship no agent types. Where a skill names `subagent_type: "kick:<role>"`, call `spawn_agent` with instructions that begin "Read `<plugin root>/agents/<role>.md` in full and follow it", where the plugin root is two directories above the skill's `SKILL.md`. Pass the task brief after that line.
+Roles resolve per [models](models.md), whose Codex column applies here.
+
+Codex plugins ship no agent types. Where a skill names `subagent_type: "kick:<role>"`, call `spawn_agent` with instructions that begin "Read `<plugin root>/agents/<role>.md` in full and follow it", where the plugin root is two directories above the skill's `SKILL.md`. Pass the task brief after that line. For `kick:reviewer`, also pass `reasoning_effort: "high"`.
 
 `spawn_agent` already runs beside your turn, so there is no background flag. Read-only cannot be enforced on a Codex subagent; snapshot `git status` and `HEAD` before a review and compare after it.
 

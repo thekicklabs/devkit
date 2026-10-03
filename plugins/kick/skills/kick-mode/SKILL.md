@@ -122,7 +122,10 @@ Read a principle's file in full before you apply or cite it. Each entry names wh
 
 Spawn playbook delegates with `subagent_type: "kick:worker"`. Skills that set their own `subagent_type` keep it.
 
-- Run them in the background, and pass file pointers, not file contents.
+- **Roles.** Skills name a role (`default`, `strong`, `fast`, `panel`, `reviewer`), never a model. Resolve it per [models](references/models.md): the user's config first, then the defaults there.
+- **Fan-out.** At most `fan-out` subagents (3 by default) run at once. Queue the rest.
+- **Read-only guard.** Before a read-only role runs (a reviewer, explorer, or investigator), note `git rev-parse HEAD` and `git status --porcelain`. Compare after it returns. A difference means the run was tainted: discard its output and say so.
+- Run subagents in the background, and pass file pointers, not file contents.
 - You own every subagent's work. Read the diff it returns and write your own summary.
 - Give new work to a fresh subagent with the consolidated brief: the original ask, every later directive, and the prior agent's report and branch. Resume an existing agent only when the work needs state that lives in it, such as its uncommitted changes or a process it runs.
 - Stop an abandoned agent and confirm it stopped. `git status` contradicting an agent's claim about the tree means it is still running.
@@ -151,14 +154,3 @@ Apply `unslop` while you draft.
 - Never hand the human a check you could run.
 
 Each playbook ends with a **Reply** line naming what that reply must contain.
-
-## Models
-
-Role defaults. A matching role line in the `pstack-models.md` override sheet overrides each at runtime.
-
-- feature, refactoring: `opus`
-- bug-fix: `fable`
-- perf-issue: `fable`
-- hillclimb: `fable`
-- judgment and prose: `opus`
-- strongest judgment: `fable`

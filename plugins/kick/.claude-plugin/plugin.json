@@ -9,5 +9,17 @@
   },
   "homepage": "https://github.com/thekicklabs/devkit",
   "repository": "https://github.com/thekicklabs/devkit",
-  "keywords": ["workflow", "skills", "code-review", "tdd", "subagents", "codex"]
+  "keywords": [
+    "workflow",
+    "skills",
+    "code-review",
+    "tdd",
+    "subagents",
+    "codex"
+  ],
+  "agents": [
+    "./agents/worker.md",
+    "./agents/reviewer.md",
+    "./agents/comment-sicko.md"
+  ]
 }

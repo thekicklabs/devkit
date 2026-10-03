@@ -1,6 +1,6 @@
 ---
 name: why
-description: "Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Discovers available MCPs and queries each evidence category (source control, issue tracker, long-form docs, real-time chat, infrastructure observability, error tracking, product analytics warehouse) in parallel, then returns a cited read on decisions and tradeoffs. Use how for runtime behavior."
+description: "Use for 'why does X work this way', 'why we picked Y', design rationale, regressions, postmortems, or data-backed thresholds. Reads git and gh history by default, fans out to other evidence sources (issue tracker, docs, chat, observability, error tracking, analytics) through their MCPs on request, and returns a cited read on decisions and tradeoffs. Use how for runtime behavior."
 ---
 
 # Why
@@ -10,8 +10,6 @@ On Codex, read the [platform mapping](../kick-mode/references/codex-tools.md) be
 Investigate the motivation and intent behind code.
 
 Companion to the `how` skill. `how` answers what the code does and how it works. `why` answers what forces led to its shape.
-
-Each spawn below names a role line in `pstack-models.md` and a default in [Models](#models). Set `model` to that line's value, or to the default if the sheet or the line is missing. Leave `model` unset when the value is `auto` or `inherit-parent`. If the `Agent` tool rejects a slug, use the default and say so. If it rejects the default, use the closest valid slug of the same family from its error message.
 
 ## Operating Posture
 
@@ -54,17 +52,15 @@ Pull PR bodies and discussion via `gh` for any substantive commits:
 gh pr view <number> --json title,body,author,createdAt,mergedAt,labels,closingIssuesReferences,comments,reviews
 ```
 
-Capture this as seed context (file paths, symbols, commits, PR numbers, linked ticket IDs). Pass it to the investigators.
+Capture this as seed context (file paths, symbols, commits, PR numbers, linked ticket IDs). For most questions this source-control pass is the whole investigation: read what it surfaces and go to Step 4.
 
-## Step 3. Spawn Parallel Investigators (default posture)
+## Step 3. Widen to other sources (on request)
 
-**Default to the full parallel investigation.**
+Spawn investigators beyond source control only when the user asks for a wider sweep, or when git and `gh` leave the question open and an MCP for the missing evidence is available. Say which you are doing.
 
 ### Discovery
 
-Before spawning investigators, list the available MCPs in the Claude Code environment. Use the tool list at the top of the system prompt (every MCP appears as a tool with prefix `mcp__<server>__<name>`). Otherwise read `.mcp.json` in the plugin/project, or run `claude mcp list`.
-
-Map each available MCP to one evidence category:
+List the available MCPs from the tools the session exposes (every MCP appears as a tool prefixed `mcp__<server>__`). Map each to one evidence category:
 
 1. Source control history
 2. Issue / ticket tracker
@@ -74,16 +70,9 @@ Map each available MCP to one evidence category:
 6. Error / exception tracking
 7. Product analytics warehouse
 
-Source control is always available through git and `gh`. For the other six, classify using the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence. Record ambiguous cases in the coverage map.
+Source control is always available through git and `gh`. Classify the others by the MCP name, server instructions, tool names, and resource descriptors. If an MCP could fit more than one category, choose the one matching its primary evidence.
 
-Aim for a complete **coverage map**, not a minimal one. Document the null, don't skip the search.
-
-Launch all matching investigators in a single message so they run concurrently. Don't ask one agent to cover multiple MCPs.
-
-Subagent config (each):
-- `subagent_type`: `general-purpose`
-- `model`: the `why investigators` line, default in [Models](#models)
-- `readonly`: `false` (agent mode). **Do not use readonly/Ask mode.** It strips MCP access, which disables MCP-backed investigators entirely. Investigators still shouldn't write anything.
+Spawn one investigator per selected category in one message, on the `fast` role from [models](../kick-mode/references/models.md), at most `fan-out` at once. Don't ask one agent to cover several MCPs. Investigators need MCP access, so use a full-tool subagent, and tell them they must not write anything.
 
 Each investigator gets:
 1. The base prompt from `references/investigator-prompt.md`
@@ -112,37 +101,21 @@ Each entry names the category and the kind of "why" it uniquely surfaces. Use it
 
 7. **Product analytics warehouse investigator** (e.g. Databricks, Snowflake, BigQuery, ClickHouse, dbt, Redshift MCP). Product/data view. Best at surfacing *product and data reality that shaped the code*. Strongest for flag-gated code, experiment-driven ships, data migrations, and "where did this number come from" questions.
 
-### When to skip an investigator
+### Recording coverage
 
-Only skip with an **explicit, written justification** that goes in the final "Sources Consulted" section. Two valid reasons:
-
-- **No MCP is available for that category** in this environment. Flag this as a gap, not a choice. Example: "Real-time team chat skipped. No matching MCP available, so the conversational record was not searchable."
-- **The source is provably irrelevant**, not just "probably irrelevant." A high bar. Example: "Error / exception tracking skipped. Target is a build-time script with no runtime code path."
-
-If your scope assessment suggests a single-commit trivial target where the PR description already contains the complete answer, you may answer inline **only after** confirming all seven available category searches would be redundant. Say so explicitly. This should be rare.
+Sources Consulted lists source control plus every category you did not search, with the reason: no matching MCP (a gap, not a choice), not requested, or provably irrelevant.
 
 ## Step 4. Synthesize
 
-Spawn one synthesizer subagent:
-
-- `subagent_type`: `general-purpose`
-- `model`: the `why synthesizer` line, default in [Models](#models)
-- `readonly`: `false` (agent mode). The synthesizer's quality check spot-verifies citations, which can require MCP access. Readonly/Ask mode strips MCPs and defeats that.
-
-The synthesizer gets:
-1. The investigator findings, including any null results and any categories skipped with justification
-2. The code anchor from Step 2 (file paths, symbols, commit hashes, PR numbers, ticket IDs)
-3. The user's original question
-4. The epistemics framework from `references/epistemics.md`
-5. The synthesizer prompt template from `references/synthesizer-prompt.md`
+Write the answer yourself from the source-control pass and any investigator findings, following `references/synthesizer-prompt.md` and the epistemics framework in `references/epistemics.md`. Spot-check the citations you lean on.
 
 ## Step 5. Present
 
-Take the synthesizer's output and present it to the user. You may lightly edit for clarity or add context from the conversation, but **do not rewrite the confidence language**.
+Present the synthesis. You may add context from the conversation, but **do not soften the confidence language**.
 
 ## Output Format
 
-The output structure is the one in `references/synthesizer-prompt.md`: The Question, The Code in Question, What We Found, What We Can Reasonably Infer, Competing Hypotheses, What We Don't Know, Sources Consulted, Confidence Summary. Adapt as needed, but keep the confidence separation intact, and keep Sources Consulted as one line per investigator, including the ones that returned nothing or were skipped, with the reason.
+The output structure is the one in `references/synthesizer-prompt.md`: The Question, The Code in Question, What We Found, What We Can Reasonably Infer, Competing Hypotheses, What We Don't Know, Sources Consulted, Confidence Summary. Adapt as needed, but keep the confidence separation intact, and keep Sources Consulted as one line per source, including the ones that returned nothing or were not searched, with the reason.
 
 After the Sources Consulted block, if the user's `why` question is a precursor to actually changing this code, convert the lineage findings into a Preserve / Change / Avoid / Risk constraint set suitable for planning the change.
 
@@ -156,11 +129,4 @@ After the Sources Consulted block, if the user's `why` question is a precursor t
 - `references/investigator-prompt.md`. Base prompt template for investigator subagents.
 - `references/source-playbook.md`. Index pointing at the category playbooks below.
 - `references/sources/*.md`. One self-contained example playbook per category, plus cross-cutting `incident-postmortem.md`. Give an investigator the single file that matches its category and adapt it to the available MCP.
-- `references/synthesizer-prompt.md`. Prompt template for the synthesizer subagent, including the output format.
-
-## Models
-
-Role defaults, stamped from `plugins/pstack/models.json` (edit there, rerun `tools/generate.mjs`). A matching role line in the `pstack-models.md` override sheet overrides each at runtime.
-
-- why investigators: `opus`
-- why synthesizer: `opus`
+- `references/synthesizer-prompt.md`. The synthesis template you follow, including the output format.
