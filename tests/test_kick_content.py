@@ -42,7 +42,7 @@ SKILL_MENTION = re.compile(
     r"`/?([a-z][a-z0-9-]*)` skill\b|\*\*([a-z][a-z0-9-]*)\*\* skill\b|`/([a-z][a-z0-9-]*)`"
 )
 NAMESPACED = re.compile(r"\bkick:([a-z][a-z0-9-]*)")
-BUILT_IN = {"run", "loop", "verify"}
+BUILT_IN = {"run", "loop", "verify", "hooks"}
 
 
 def _markdown() -> list[Path]:

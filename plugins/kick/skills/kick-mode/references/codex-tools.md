@@ -39,3 +39,7 @@ Codex plugins ship no agent types. Where a skill names `subagent_type: "kick:<ro
 ## Instructions file
 
 Where a skill says "your instructions file", Codex reads `AGENTS.md` (the project root, plus `~/.codex/AGENTS.md`). Claude Code reads `CLAUDE.md`.
+
+## Session hook
+
+Codex runs kick's SessionStart hook only after you trust it in `/hooks`. Until then, invoke `$kick:kick-mode` yourself.
