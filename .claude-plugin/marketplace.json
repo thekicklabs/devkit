@@ -1,0 +1,20 @@
+{
+  "name": "kicklabs",
+  "owner": {
+    "name": "thekicklabs",
+    "url": "https://github.com/thekicklabs"
+  },
+  "description": "Skills, agents and hooks for an end-to-end development process in Claude Code and Codex.",
+  "plugins": [
+    {
+      "name": "kick",
+      "source": "./plugins/kick",
+      "description": "Plan, build test-first, debug, review across agents, and ship, sized for everyday subscription budgets."
+    },
+    {
+      "name": "store",
+      "source": "./plugins/store",
+      "description": "App Store Connect listings, pricing, RevenueCat setup and release readiness from store.yaml."
+    }
+  ]
+}

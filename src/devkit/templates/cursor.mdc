@@ -4,4 +4,4 @@ alwaysApply: true
 ---
 
 Read `AGENTS.md` at the repository root before anything else, then follow the files it routes
-you to under `AGENTS/`. Skills live in `.cursor/skills/`.
+you to under `AGENTS/`.

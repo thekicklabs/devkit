@@ -13,7 +13,7 @@ from devkit import installer, machine, picker
 from devkit import search as search_mod
 from devkit.catalog import KINDS, UnknownItem
 from devkit.paths import home, repo_root
-from devkit.targets import AGENTS, supports
+from devkit.targets import AGENTS
 
 app = typer.Typer(
     help="Install skills, rules and stack conventions for Claude Code, Codex and Cursor.",
@@ -93,7 +93,7 @@ def install(
     all_: bool = typer.Option(False, "--all", help="every skill and stack"),
     yes: bool = typer.Option(False, "--yes", "-y", help="never prompt"),
 ):
-    """Copy skills + rules into each agent's directories and upsert the router."""
+    """Install rules and the router; skills via the plugin CLIs, or as copies for Cursor."""
     cat = _catalog()
     home_dir = home()
     manifest = installer.read_manifest(home_dir)
@@ -139,16 +139,14 @@ def install(
     agents = _csv(agent)
     if not agents:
         if names and last.get("agents"):
-            agents = [a for a in last["agents"] if supports(a, scope)]
+            agents = list(last["agents"])
         elif prompt:
-            agents = picker.pick_agents(scope)
+            agents = picker.pick_agents()
         else:
-            agents = [a for a in AGENTS if supports(a, scope)]
+            agents = list(AGENTS)
     for a in agents:
         if a not in AGENTS:
             raise typer.BadParameter(f"unknown agent '{a}' (choose from {', '.join(AGENTS)})")
-        if not supports(a, scope):
-            raise typer.BadParameter(f"{a} has no file-based {scope} scope")
 
     project = None if scope == "global" else (path or Path.cwd()).resolve()
     req = installer.Request(
@@ -176,7 +174,15 @@ def install(
         grouped.setdefault(w.what, []).append(w.path)
     for what, paths in grouped.items():
         table.add_row(what, _summarise(paths, home_dir))
+    for step in report.steps:
+        table.add_row(f"plugin ({step.agent})", f"{step.subject}: {step.outcome}")
+    if report.pruned:
+        table.add_row("pruned old copies", _summarise(report.pruned, home_dir))
+    if report.kept:
+        table.add_row("left in place (edited or behind a link)", _summarise(report.kept, home_dir))
     console.print(table)
+    if any(s.outcome.startswith("failed") for s in report.steps):
+        raise typer.Exit(1)
     added = [s for s in report.stacks if s not in req.stacks and s not in already]
     if added:
         console.print(f"[dim]added required stack(s): {', '.join(added)}[/dim]")
@@ -186,7 +192,7 @@ def install(
 def update(
     pull: bool = typer.Option(True, "--pull/--no-pull", help="git pull the devkit clone first"),
 ):
-    """Pull the latest devkit, then re-copy every recorded install."""
+    """Pull the latest devkit, re-copy every recorded install, and update its plugins."""
     root = repo_root()
     if pull and (root / ".git").is_dir():
         subprocess.run(["git", "-C", str(root), "pull", "--ff-only"], check=True)
@@ -208,9 +214,18 @@ def update(
             table.add_row(where, o.scope, "-", note)
             continue
         changed = "\n".join(_short(p, home_dir) for p in o.changed) if o.changed else "-"
-        table.add_row(where, o.scope, changed, f"{o.unchanged} unchanged")
+        notes = [f"{o.unchanged} unchanged"]
+        if o.pruned:
+            notes.append(f"{len(o.pruned)} old copies pruned")
+        if o.kept:
+            notes.append(f"{len(o.kept)} copies left in place")
+        table.add_row(where, o.scope, changed, ", ".join(notes))
     console.print(table)
-    if any(o.error for o in outcomes):
+    steps = [s for o in outcomes for s in o.steps if s.outcome != "present"]
+    steps += installer.update_plugins(home_dir)
+    for step in steps:
+        console.print(f"plugin ({step.agent}) {step.subject}: {step.outcome}")
+    if any(o.error for o in outcomes) or any(s.outcome.startswith("failed") for s in steps):
         raise typer.Exit(1)
 
 

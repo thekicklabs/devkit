@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from devkit.catalog import Catalog
-from devkit.targets import AGENTS, SCOPES, supports
+from devkit.targets import AGENTS, SCOPES
 
 
 def interactive() -> bool:
@@ -36,11 +36,11 @@ def pick_scope() -> str:
     return inquirer.select(message="Scope:", choices=list(SCOPES), default="local").execute()
 
 
-def pick_agents(scope: str) -> list[str]:
+def pick_agents() -> list[str]:
     from InquirerPy import inquirer
     from InquirerPy.base.control import Choice
 
-    choices = [Choice(a, enabled=True) for a in AGENTS if supports(a, scope)]
+    choices = [Choice(a, enabled=True) for a in AGENTS]
     return inquirer.checkbox(
         message="Agents:",
         choices=choices,

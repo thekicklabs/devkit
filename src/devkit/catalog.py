@@ -24,6 +24,11 @@ class Item:
     def label(self) -> str:
         return f"{self.kind}:{self.name}"
 
+    @property
+    def plugin(self) -> str:
+        """The plugin a skill ships in: plugins/<plugin>/skills/<name>."""
+        return self.path.parent.parent.name
+
 
 class UnknownItem(KeyError):
     pass
@@ -72,7 +77,7 @@ class Catalog:
 
 def load(root: Path) -> Catalog:
     items: list[Item] = []
-    items += _skills(root / "skills")
+    items += _skills(root / "plugins")
     items += _stacks(root / "stacks")
     items += _rules(root / "rules")
     items += _machine(root / "machine")
@@ -89,7 +94,7 @@ def _as_tuple(value: object) -> tuple[str, ...]:
 
 def _skills(base: Path) -> list[Item]:
     out = []
-    for skill_md in sorted(base.glob("*/SKILL.md")):
+    for skill_md in sorted(base.glob("*/skills/*/SKILL.md"), key=lambda p: p.parent.name):
         meta, body = frontmatter.split(skill_md.read_text())
         name = str(meta.get("name") or skill_md.parent.name)
         out.append(
