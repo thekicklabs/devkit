@@ -114,8 +114,11 @@ args is an import cycle.
 - **One transaction per test, rolled back.** A helper begins on the shared test pool, hands
   the `pgx.Tx` down, and rolls back in `t.Cleanup` with `context.Background()`, because
   `t.Context()` is already cancelled when cleanups run. Nothing commits; no `TRUNCATE`.
-- **`TestMain` migrates through a goose `Provider` with `lock.NewPostgresSessionLocker()`.**
-  `go test ./...` runs packages as parallel processes against one database.
+- **`TestMain` calls the same migrate function as the binary, under one session lock.**
+  `go test ./...` runs packages as parallel processes against one database, and
+  `rivermigrate` takes no lock of its own. The function takes
+  `lock.NewPostgresSessionLocker()`'s `SessionLock` on one connection, runs goose then River,
+  and unlocks.
 - **External HTTP APIs are `httptest.NewServer` fakes** serving recorded fixtures. The base
   URL comes from `Config`, so the real client's encoding, auth and error mapping run.
 - **Assert the job, not its effect:** `rivertest.RequireInsertedTx[*riverpgxv5.Driver]`.
